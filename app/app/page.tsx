@@ -1,7 +1,15 @@
 import Link from "next/link";
-import { AppBottomNav } from "../_components/AppBottomNav";
+import { AppBottomNav } from "@/app/_components/AppBottomNav";
+import { createClient } from "@/lib/supabase/server";
+import { logout } from "./actions";
 
-export default function AppHomePage() {
+export default async function AppHomePage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
@@ -14,6 +22,12 @@ export default function AppHomePage() {
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
               あなたが生み出したキャラクターに、今日も会いに行きましょう。
             </p>
+
+            {user?.email ? (
+              <p className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-[#A7B0C0]">
+                ログイン中：{user.email}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 text-lg">
@@ -66,6 +80,15 @@ export default function AppHomePage() {
             </p>
           </div>
         </div>
+
+        <form action={logout} className="mt-6">
+          <button
+            type="submit"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-semibold text-[#F4F1EA] transition hover:bg-white/[0.08]"
+          >
+            ログアウト
+          </button>
+        </form>
       </section>
 
       <AppBottomNav />
