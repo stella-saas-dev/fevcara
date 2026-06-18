@@ -1,65 +1,66 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen overflow-hidden bg-[#0B1020] text-[#F4F1EA]">
+      <section className="relative flex min-h-screen items-center justify-center px-5 py-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(190,242,100,0.22),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(125,211,252,0.2),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(250,204,21,0.16),_transparent_34%),linear-gradient(180deg,_#142033_0%,_#0B1020_55%,_#070B16_100%)]" />
+
+        <div className="absolute left-8 top-16 h-20 w-20 rounded-full bg-[#BEF264]/20 blur-3xl" />
+        <div className="absolute bottom-20 right-10 h-28 w-28 rounded-full bg-[#FACC15]/20 blur-3xl" />
+        <div className="absolute right-12 top-28 h-16 w-16 rounded-full bg-[#7DD3FC]/20 blur-2xl" />
+
+        <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-[#111827]/75 p-6 shadow-2xl shadow-black/40 backdrop-blur">
+          <div className="mb-8 inline-flex rounded-full border border-[#BEF264]/30 bg-[#BEF264]/10 px-3 py-1 text-xs font-medium text-[#D9F99D]">
+            AI Character Creation Platform
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <h1 className="bg-gradient-to-r from-[#F4F1EA] via-[#BEF264] to-[#7DD3FC] bg-clip-text text-6xl font-black tracking-tight text-transparent drop-shadow-[0_0_24px_rgba(190,242,100,0.22)]">
+                FevCara
+              </h1>
+              <p className="mt-2 text-sm font-semibold tracking-[0.28em] text-[#FACC15]">
+                フェブキャラ
+              </p>
+            </div>
+
+            <p className="text-xl font-semibold leading-8 text-[#F4F1EA]">
+              あなたの“好き”から生まれる、
+              <br />
+              あなただけのAIキャラクター。
+            </p>
+
+            <p className="leading-7 text-[#B8C2D6]">
+              姿を与え、名前を贈り、会いに行く。
+              FevCaraは、AIと話すだけではなく、
+              あなたが生み出したキャラクターと過ごすための場所です。
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-3">
+            <Link
+              href="/signup"
+              className="rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              キャラクターを作成する
+            </Link>
+
+            <Link
+              href="/login"
+              className="rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 text-center text-sm font-semibold text-[#F4F1EA] transition hover:bg-white/[0.09]"
             >
-              Learning
-            </a>{" "}
-            center.
+              ログイン
+            </Link>
+          </div>
+
+          <p className="mt-6 text-center text-xs leading-5 text-[#7D8AA3]">
+            実在人物や既存キャラクターではなく、
+            <br />
+            あなただけのオリジナルキャラクターを。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
