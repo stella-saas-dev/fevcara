@@ -3,24 +3,28 @@ import { AppBottomNav } from "@/app/_components/AppBottomNav";
 
 const artStyles = [
   {
+    slug: "midnight_anime",
     name: "Midnight Anime",
     description: "夜にも映える、落ち着いたアニメ調の標準スタイル。",
     previewClass:
       "bg-[radial-gradient(circle_at_35%_30%,_#F4F1EA_0_8%,_transparent_9%),radial-gradient(circle_at_65%_30%,_#BEF264_0_8%,_transparent_9%),linear-gradient(135deg,_#1E293B,_#0B1020)]",
   },
   {
+    slug: "soft_novel",
     name: "Soft Novel",
     description: "やわらかい線と淡い陰影の、物語向けイラスト調。",
     previewClass:
       "bg-[radial-gradient(circle_at_35%_35%,_#FDE68A_0_9%,_transparent_10%),radial-gradient(circle_at_65%_35%,_#FBCFE8_0_9%,_transparent_10%),linear-gradient(135deg,_#FDE68A,_#A7F3D0)]",
   },
   {
+    slug: "clean_webtoon",
     name: "Clean Webtoon",
     description: "スマホで見やすい、輪郭がはっきりした現代的スタイル。",
     previewClass:
       "bg-[radial-gradient(circle_at_35%_32%,_#FFFFFF_0_8%,_transparent_9%),radial-gradient(circle_at_65%_32%,_#7DD3FC_0_8%,_transparent_9%),linear-gradient(135deg,_#2563EB,_#22C55E)]",
   },
   {
+    slug: "dark_fantasy",
     name: "Dark Fantasy",
     description: "影と幻想感を強めた、クールなキャラクター向けスタイル。",
     previewClass:
@@ -45,7 +49,7 @@ export default function NewCharacterPage() {
           </p>
           <h1 className="mt-2 text-3xl font-black">新しい存在を生み出す</h1>
           <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
-            外見、話し方、目の色、祝ってほしい日。
+            外見、話し方、目の色、表情、祝ってほしい日。
             あなたの“好き”から、あなただけのAIキャラクターを作ります。
           </p>
         </header>
@@ -62,6 +66,7 @@ export default function NewCharacterPage() {
                   キャラクターの仮名
                 </span>
                 <input
+                  name="temporaryName"
                   type="text"
                   placeholder="例：ルイ、ミナト、セレナ"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -76,6 +81,7 @@ export default function NewCharacterPage() {
                   性別・雰囲気
                 </span>
                 <input
+                  name="genderFeel"
                   type="text"
                   placeholder="例：男性 / 中性的 / 少女 / 性別不詳"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -87,6 +93,7 @@ export default function NewCharacterPage() {
                   年齢感
                 </span>
                 <input
+                  name="ageFeel"
                   type="text"
                   placeholder="例：20代前半くらい / 年齢不詳 / 少年風"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -99,6 +106,7 @@ export default function NewCharacterPage() {
                     髪色
                   </span>
                   <input
+                    name="hairColor"
                     type="text"
                     placeholder="例：銀色"
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -110,6 +118,7 @@ export default function NewCharacterPage() {
                     目の色
                   </span>
                   <input
+                    name="eyeColor"
                     type="text"
                     placeholder="例：青紫"
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -122,6 +131,7 @@ export default function NewCharacterPage() {
                   髪型
                 </span>
                 <input
+                  name="hairstyle"
                   type="text"
                   placeholder="例：少し長めの黒髪、前髪あり"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -133,7 +143,35 @@ export default function NewCharacterPage() {
                   服装
                 </span>
                 <textarea
+                  name="outfit"
                   placeholder="例：黒いロングコート、白いシャツ、細いリボンタイ"
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  基本表情
+                </span>
+                <input
+                  name="defaultExpression"
+                  type="text"
+                  placeholder="例：やわらかく微笑んでいる / クールな無表情 / 少し照れている"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
+                />
+                <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
+                  初回の立ち絵画像に反映する表情です。あとから調整できます。
+                </p>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  表情のこだわり
+                </span>
+                <textarea
+                  name="expressionDetail"
+                  placeholder="例：口元だけ少し笑う。目は落ち着いていて、感情を出しすぎない。"
                   rows={3}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
                 />
@@ -152,6 +190,7 @@ export default function NewCharacterPage() {
                   性格
                 </span>
                 <textarea
+                  name="personality"
                   placeholder="例：落ち着いているけど少し照れ屋。面倒見がよく、創作の相談に優しく乗ってくれる。"
                   rows={4}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -164,6 +203,7 @@ export default function NewCharacterPage() {
                     一人称
                   </span>
                   <input
+                    name="firstPerson"
                     type="text"
                     placeholder="例：僕"
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -175,6 +215,7 @@ export default function NewCharacterPage() {
                     あなたの呼び方
                   </span>
                   <input
+                    name="userNickname"
                     type="text"
                     placeholder="例：先輩"
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -187,6 +228,7 @@ export default function NewCharacterPage() {
                   口調・話し方
                 </span>
                 <textarea
+                  name="speechStyle"
                   placeholder="例：基本は穏やかで少し甘め。長文すぎず、1〜3文で自然に返す。語尾は柔らかく、押しつけがましくしない。"
                   rows={4}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -198,6 +240,7 @@ export default function NewCharacterPage() {
                   禁止したい話し方
                 </span>
                 <textarea
+                  name="forbiddenSpeech"
                   placeholder="例：説教っぽくしない。毎回質問で終わらない。語尾に毎回♡を付けない。ユーザーを呼び捨てにしない。"
                   rows={4}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -217,6 +260,7 @@ export default function NewCharacterPage() {
                   好きなもの
                 </span>
                 <input
+                  name="likes"
                   type="text"
                   placeholder="例：夜の散歩、紅茶、古い本"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -228,6 +272,7 @@ export default function NewCharacterPage() {
                   苦手なもの
                 </span>
                 <input
+                  name="dislikes"
                   type="text"
                   placeholder="例：大きな音、雑な扱い"
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -249,6 +294,7 @@ export default function NewCharacterPage() {
                       月
                     </span>
                     <input
+                      name="celebrationMonth"
                       type="number"
                       min="1"
                       max="12"
@@ -262,6 +308,7 @@ export default function NewCharacterPage() {
                       日
                     </span>
                     <input
+                      name="celebrationDay"
                       type="number"
                       min="1"
                       max="31"
@@ -276,6 +323,7 @@ export default function NewCharacterPage() {
                     何の日？
                   </span>
                   <input
+                    name="celebrationTitle"
                     type="text"
                     placeholder="例：活動記念日"
                     className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#FACC15]/60"
@@ -295,40 +343,41 @@ export default function NewCharacterPage() {
             </p>
 
             <div className="mt-5 grid gap-3">
-                {artStyles.map((style, index) => (
-                    <label
-                    key={style.name}
-                    className="block cursor-pointer rounded-3xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-[#BEF264]/40 hover:bg-white/[0.07]"
+              {artStyles.map((style, index) => (
+                <label
+                  key={style.slug}
+                  className="block cursor-pointer rounded-3xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-[#BEF264]/40 hover:bg-white/[0.07]"
+                >
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="radio"
+                      name="artStyle"
+                      value={style.slug}
+                      defaultChecked={index === 0}
+                      className="shrink-0 accent-[#BEF264]"
+                    />
+
+                    <div
+                      className={[
+                        "relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-lg shadow-black/30",
+                        style.previewClass,
+                      ].join(" ")}
                     >
-                    <div className="flex items-center gap-4">
-                        <input
-                        type="radio"
-                        name="artStyle"
-                        defaultChecked={index === 0}
-                        className="shrink-0 accent-[#BEF264]"
-                        />
-
-                        <div
-                        className={[
-                            "relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-lg shadow-black/30",
-                            style.previewClass,
-                        ].join(" ")}
-                        >
-                        <div className="absolute bottom-0 left-1/2 h-8 w-8 -translate-x-1/2 rounded-t-full bg-black/25" />
-                        <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border border-white/20 bg-white/15 backdrop-blur-sm" />
-                        </div>
-
-                        <div>
-                        <p className="text-sm font-bold text-[#F4F1EA]">
-                            {style.name}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
-                            {style.description}
-                        </p>
-                        </div>
+                      <div className="absolute bottom-0 left-1/2 h-8 w-8 -translate-x-1/2 rounded-t-full bg-black/25" />
+                      <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border border-white/20 bg-white/15 backdrop-blur-sm" />
                     </div>
-                    </label>
-                ))}
+
+                    <div>
+                      <p className="text-sm font-bold text-[#F4F1EA]">
+                        {style.name}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                        {style.description}
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              ))}
             </div>
           </section>
 
@@ -343,6 +392,7 @@ export default function NewCharacterPage() {
                   外見の詳細プロンプト
                 </span>
                 <textarea
+                  name="appearanceDetail"
                   placeholder="例：目元は涼しげ。光が当たると瞳が青緑に見える。細身で静かな雰囲気。"
                   rows={5}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111827]/80 px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
@@ -354,6 +404,7 @@ export default function NewCharacterPage() {
                   絶対に守ってほしい設定
                 </span>
                 <textarea
+                  name="absoluteSettings"
                   placeholder="例：一人称は必ず僕。ユーザーを必ず先輩と呼ぶ。冷たすぎる言い方はしない。"
                   rows={5}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#111827]/80 px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
