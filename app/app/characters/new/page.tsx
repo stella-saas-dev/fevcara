@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
+import { createCharacter } from "./actions";
 
 const artStyles = [
   {
@@ -32,7 +33,17 @@ const artStyles = [
   },
 ];
 
-export default function NewCharacterPage() {
+type NewCharacterPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function NewCharacterPage({
+  searchParams,
+}: NewCharacterPageProps) {
+  const params = await searchParams;
+
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
@@ -54,7 +65,13 @@ export default function NewCharacterPage() {
           </p>
         </header>
 
-        <form className="mt-8 space-y-5">
+        <form action={createCharacter} className="mt-8 space-y-5">
+          {params.error ? (
+            <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+              {params.error}
+            </div>
+          ) : null}
+
           <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
             <p className="text-sm font-semibold text-[#7DD3FC]">
               STEP 1 / 基本プロフィール
@@ -69,6 +86,7 @@ export default function NewCharacterPage() {
                   name="temporaryName"
                   type="text"
                   placeholder="例：ルイ、ミナト、セレナ"
+                  required
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
                 />
                 <p className="mt-2 text-xs text-[#7D8AA3]">
@@ -425,10 +443,10 @@ export default function NewCharacterPage() {
           </div>
 
           <button
-            type="button"
+            type="submit"
             className="w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
           >
-            この内容で姿を与える
+            この内容で保存する
           </button>
         </form>
       </section>
