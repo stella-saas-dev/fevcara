@@ -1,6 +1,16 @@
 import Link from "next/link";
+import { login } from "./actions";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{
+    error?: string;
+    message?: string;
+  }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 py-10 text-[#F4F1EA]">
       <section className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md items-center">
@@ -19,14 +29,29 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="mt-8 space-y-4">
+          {params.error ? (
+            <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+              {params.error}
+            </div>
+          ) : null}
+
+          {params.message ? (
+            <div className="mt-6 rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 p-4 text-sm leading-6 text-[#D9F99D]">
+              {params.message}
+            </div>
+          ) : null}
+
+          <form action={login} className="mt-8 space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-[#D8DEE9]">
                 メールアドレス
               </span>
               <input
+                name="email"
                 type="email"
                 placeholder="you@example.com"
+                autoComplete="email"
+                required
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
               />
             </label>
@@ -36,14 +61,17 @@ export default function LoginPage() {
                 パスワード
               </span>
               <input
+                name="password"
                 type="password"
                 placeholder="パスワード"
+                autoComplete="current-password"
+                required
                 className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
               />
             </label>
 
             <button
-              type="button"
+              type="submit"
               className="w-full rounded-2xl bg-gradient-to-r from-[#7DD3FC] to-[#BEF264] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
             >
               ログインする

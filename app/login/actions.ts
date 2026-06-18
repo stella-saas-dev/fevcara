@@ -4,12 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+function redirectWithError(message: string): never {
+  redirect(`/login?error=${encodeURIComponent(message)}`);
+}
+
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    redirect("/login?error=メールアドレスとパスワードを入力してください。");
+    redirectWithError("メールアドレスとパスワードを入力してください。");
   }
 
   const supabase = await createClient();
@@ -20,9 +24,7 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
-    redirect(
-      "/login?error=メールアドレスまたはパスワードが正しくありません。",
-    );
+    redirectWithError("メールアドレスまたはパスワードが正しくありません。");
   }
 
   revalidatePath("/app", "layout");
