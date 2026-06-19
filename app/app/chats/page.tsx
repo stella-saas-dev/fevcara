@@ -167,8 +167,21 @@ export default async function ChatsPage() {
     };
   }
 
+  const { count: characterCount } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  const totalCharacters = characterCount ?? 0;
+  const isCurrentFreePlan = isFreePlan(profileForCharacterAccess.plan);
+
+  const needsActiveCharacterSelection =
+    isCurrentFreePlan &&
+    totalCharacters > 1 &&
+    !profileForCharacterAccess.character_limit_choice_locked;
+
   const isFreeCharacterLocked =
-    isFreePlan(profileForCharacterAccess.plan) &&
+    isCurrentFreePlan &&
     Boolean(profileForCharacterAccess.character_limit_choice_locked) &&
     Boolean(profileForCharacterAccess.active_character_id);
 
@@ -226,6 +239,13 @@ export default async function ChatsPage() {
       thread.character_id !== profileForCharacterAccess.active_character_id,
   );
 
+  const hasSelectionRequiredChats = threads.some(
+    (thread) =>
+      needsActiveCharacterSelection &&
+      thread.chat_type === "single" &&
+      Boolean(thread.character_id),
+  );
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-28 pt-6 text-[#F4F1EA] sm:px-5">
       <section className="mx-auto w-full max-w-md">
@@ -269,7 +289,26 @@ export default async function ChatsPage() {
           </div>
         </header>
 
-        {hasWaitingChats ? (
+        {needsActiveCharacterSelection ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+            <p className="text-sm font-black text-[#FDE68A]">
+              Freeで使うキャラクターを選んでください
+            </p>
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              現在キャラクターが{totalCharacters}
+              人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。
+            </p>
+
+            <Link
+              href="/app/characters/select-active"
+              className="mt-4 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-center text-sm font-black text-[#07111F]"
+            >
+              使うキャラを選ぶ
+            </Link>
+          </div>
+        ) : null}
+
+        {!needsActiveCharacterSelection && hasWaitingChats ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
               待機中のチャットがあります
@@ -277,6 +316,14 @@ export default async function ChatsPage() {
             <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
               Freeプランでは、選択した1人のキャラクターだけとチャットできます。
               待機中のキャラクターは履歴の確認のみできます。
+            </p>
+          </div>
+        ) : null}
+
+        {hasSelectionRequiredChats ? (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs leading-6 text-[#A7B0C0]">
+              下のチャット履歴は残っていますが、送信するには先に使うキャラクターを選択してください。
             </p>
           </div>
         ) : null}
@@ -327,13 +374,25 @@ export default async function ChatsPage() {
                 thread.character_id !==
                   profileForCharacterAccess.active_character_id;
 
+              const isSelectionRequiredThread =
+                needsActiveCharacterSelection &&
+                thread.chat_type === "single" &&
+                Boolean(thread.character_id);
+
+              const isLimitedThread =
+                isWaitingThreadCharacter || isSelectionRequiredThread;
+
+              const threadHref = isSelectionRequiredThread
+                ? "/app/characters/select-active"
+                : `/app/chat/${thread.id}`;
+
               return (
                 <Link
                   key={thread.id}
-                  href={`/app/chat/${thread.id}`}
+                  href={threadHref}
                   className={[
                     "group block rounded-[1.75rem] border p-4 shadow-xl shadow-black/20 transition hover:scale-[1.01]",
-                    isWaitingThreadCharacter
+                    isLimitedThread
                       ? "border-white/5 bg-[#111827]/45 opacity-75 hover:border-[#FACC15]/25 hover:bg-[#151B2A]"
                       : "border-white/10 bg-[#111827]/82 hover:border-[#7DD3FC]/35 hover:bg-[#172033]",
                   ].join(" ")}
@@ -342,14 +401,14 @@ export default async function ChatsPage() {
                     <div
                       className={[
                         "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border text-xl font-black shadow-lg",
-                        isWaitingThreadCharacter
+                        isLimitedThread
                           ? "border-white/10 bg-white/[0.04] text-[#7D8AA3] shadow-black/10"
                           : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
                       ].join(" ")}
                     >
                       {isGroupChat ? "群" : getAvatarText(characterName)}
 
-                      {!isWaitingThreadCharacter ? (
+                      {!isLimitedThread ? (
                         <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border border-[#0B1020] bg-[#BEF264]" />
                       ) : null}
                     </div>
@@ -361,7 +420,7 @@ export default async function ChatsPage() {
                             <p
                               className={[
                                 "truncate text-lg font-black leading-tight",
-                                isWaitingThreadCharacter
+                                isLimitedThread
                                   ? "text-[#C6CDD9]"
                                   : "text-[#F4F1EA]",
                               ].join(" ")}
@@ -375,6 +434,12 @@ export default async function ChatsPage() {
                               </span>
                             ) : null}
 
+                            {isSelectionRequiredThread ? (
+                              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
+                                選択が必要
+                              </span>
+                            ) : null}
+
                             {isWaitingThreadCharacter ? (
                               <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
                                 待機中
@@ -382,7 +447,11 @@ export default async function ChatsPage() {
                             ) : null}
                           </div>
 
-                          {isWaitingThreadCharacter ? (
+                          {isSelectionRequiredThread ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
+                              先に使うキャラを選んでください
+                            </p>
+                          ) : isWaitingThreadCharacter ? (
                             <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
                               履歴のみ表示できます
                             </p>
@@ -405,13 +474,19 @@ export default async function ChatsPage() {
                       <p
                         className={[
                           "mt-3 line-clamp-2 text-sm leading-6",
-                          isWaitingThreadCharacter
+                          isLimitedThread
                             ? "text-[#9AA4B7]"
                             : "text-[#C9D2E3]",
                         ].join(" ")}
                       >
                         {getMessagePreview(latestMessage, characterName)}
                       </p>
+
+                      {isSelectionRequiredThread ? (
+                        <p className="mt-3 rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-3 py-2 text-xs font-bold text-[#FDE68A]">
+                          使うキャラを選ぶ
+                        </p>
+                      ) : null}
 
                       {isWaitingThreadCharacter ? (
                         <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-[#A7B0C0]">
@@ -423,7 +498,7 @@ export default async function ChatsPage() {
                     <div
                       className={[
                         "hidden shrink-0 transition group-hover:translate-x-0.5 sm:block",
-                        isWaitingThreadCharacter
+                        isLimitedThread
                           ? "text-[#7D8AA3] group-hover:text-[#FDE68A]"
                           : "text-[#7D8AA3] group-hover:text-[#BAE6FD]",
                       ].join(" ")}
