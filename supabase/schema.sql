@@ -669,3 +669,19 @@ begin
       using (auth.uid() = user_id);
   end if;
 end $$;
+
+
+
+
+
+alter table public.profiles
+add column if not exists active_character_id uuid
+references public.characters(id)
+on delete set null;
+
+alter table public.profiles
+add column if not exists character_limit_choice_locked boolean
+not null default false;
+
+create index if not exists profiles_active_character_id_idx
+on public.profiles(active_character_id);
