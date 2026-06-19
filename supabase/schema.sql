@@ -542,3 +542,130 @@ using ((select auth.uid()) = user_id);
 
 create index if not exists usage_events_user_type_created_at_idx
 on public.usage_events (user_id, event_type, created_at desc);
+
+
+
+
+create table if not exists public.chat_thread_summaries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+  character_id uuid references public.characters(id) on delete set null,
+
+  summary_text text not null default '',
+  important_facts jsonb not null default '[]'::jsonb,
+  open_questions jsonb not null default '[]'::jsonb,
+  user_preferences jsonb not null default '[]'::jsonb,
+
+  summarized_until_message_id uuid references public.chat_messages(id) on delete set null,
+  summarized_until_created_at timestamptz,
+  summarized_message_count integer not null default 0,
+
+  summary_version integer not null default 1,
+  metadata jsonb not null default '{}'::jsonb,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint chat_thread_summaries_thread_unique unique (thread_id),
+  constraint chat_thread_summaries_summarized_message_count_check
+    check (summarized_message_count >= 0)
+);
+
+create index if not exists chat_thread_summaries_user_id_idx
+  on public.chat_thread_summaries (user_id);
+
+create index if not exists chat_thread_summaries_thread_id_idx
+  on public.chat_thread_summaries (thread_id);
+
+create index if not exists chat_thread_summaries_character_id_idx
+  on public.chat_thread_summaries (character_id);
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_chat_thread_summaries_updated_at
+  on public.chat_thread_summaries;
+
+create trigger set_chat_thread_summaries_updated_at
+before update on public.chat_thread_summaries
+for each row
+execute function public.set_updated_at();
+
+alter table public.chat_thread_summaries enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'chat_thread_summaries'
+      and policyname = 'Users can read their own chat thread summaries'
+  ) then
+    create policy "Users can read their own chat thread summaries"
+      on public.chat_thread_summaries
+      for select
+      to authenticated
+      using (auth.uid() = user_id);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'chat_thread_summaries'
+      and policyname = 'Users can insert their own chat thread summaries'
+  ) then
+    create policy "Users can insert their own chat thread summaries"
+      on public.chat_thread_summaries
+      for insert
+      to authenticated
+      with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'chat_thread_summaries'
+      and policyname = 'Users can update their own chat thread summaries'
+  ) then
+    create policy "Users can update their own chat thread summaries"
+      on public.chat_thread_summaries
+      for update
+      to authenticated
+      using (auth.uid() = user_id)
+      with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'chat_thread_summaries'
+      and policyname = 'Users can delete their own chat thread summaries'
+  ) then
+    create policy "Users can delete their own chat thread summaries"
+      on public.chat_thread_summaries
+      for delete
+      to authenticated
+      using (auth.uid() = user_id);
+  end if;
+end $$;
