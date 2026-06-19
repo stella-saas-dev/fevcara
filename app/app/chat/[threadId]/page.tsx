@@ -349,6 +349,18 @@ export default async function ChatPage({
     }
   }
 
+  const { count: characterCount } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  const totalCharacters = characterCount ?? 0;
+
+  const needsActiveCharacterSelection =
+    isFreePlan(profileForCharacterAccess.plan) &&
+    totalCharacters > 1 &&
+    !profileForCharacterAccess.character_limit_choice_locked;
+
   const dailyMessageLimit = getDailyMessageLimit(profileForUsage);
   let usedMessagesToday = 0;
   let remainingMessagesToday: number | null = null;
@@ -379,7 +391,10 @@ export default async function ChatPage({
     dailyMessageLimit !== null && remainingMessagesToday === 0;
 
   const isMessageInputDisabled =
-    isFreeDailyLimitReached || hasNoFreeMessages || isWaitingThreadCharacter;
+    needsActiveCharacterSelection ||
+    isFreeDailyLimitReached ||
+    hasNoFreeMessages ||
+    isWaitingThreadCharacter;
 
   const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
 
@@ -414,7 +429,9 @@ export default async function ChatPage({
               <span
                 className={[
                   "absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020]",
-                  isWaitingThreadCharacter ? "bg-[#FACC15]" : "bg-[#BEF264]",
+                  needsActiveCharacterSelection || isWaitingThreadCharacter
+                    ? "bg-[#FACC15]"
+                    : "bg-[#BEF264]",
                 ].join(" ")}
               />
             </div>
@@ -428,6 +445,12 @@ export default async function ChatPage({
                 <h1 className="break-words text-2xl font-black leading-tight">
                   {characterName}
                 </h1>
+
+                {needsActiveCharacterSelection ? (
+                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    選択が必要
+                  </span>
+                ) : null}
 
                 {isWaitingThreadCharacter ? (
                   <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
@@ -547,6 +570,24 @@ export default async function ChatPage({
           </div>
         ) : null}
 
+        {needsActiveCharacterSelection ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
+            <p className="font-black text-[#FDE68A]">
+              先に使うキャラクターを選んでください。
+            </p>
+            <p className="mt-2 text-[#F4F1EA]">
+              現在キャラクターが{totalCharacters}
+              人います。Freeプランでは、チャットできるキャラクターを1人だけ選ぶ必要があります。
+            </p>
+            <Link
+              href="/app/characters/select-active"
+              className="mt-4 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-center text-sm font-black text-[#07111F]"
+            >
+              使うキャラを選ぶ
+            </Link>
+          </div>
+        ) : null}
+
         {shouldShowLimitNotice ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
             <p className="font-black text-[#FDE68A]">
@@ -562,7 +603,7 @@ export default async function ChatPage({
           </div>
         ) : null}
 
-        {isWaitingThreadCharacter ? (
+        {!needsActiveCharacterSelection && isWaitingThreadCharacter ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
             <p className="font-black text-[#FDE68A]">
               このキャラクターは現在待機中です。
@@ -651,16 +692,54 @@ export default async function ChatPage({
         <div className="mx-auto max-w-md rounded-[2rem] border border-white/10 bg-[#111827]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
           <input type="hidden" name="threadId" value={thread.id} />
 
+          {needsActiveCharacterSelection ? (
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+              <p className="text-xs font-black text-[#FDE68A]">
+                先に使うキャラクターを選んでください
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
+                Freeプランでは、チャットできるキャラクターを1人だけ選ぶ必要があります。
+              </p>
+            </div>
+          ) : null}
+
+          {!needsActiveCharacterSelection && isWaitingThreadCharacter ? (
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+              <p className="text-xs font-black text-[#FDE68A]">
+                このキャラクターは待機中です
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
+                現在のFreeプランでは、選択したキャラクターだけに送信できます。
+              </p>
+            </div>
+          ) : null}
+
+          {!needsActiveCharacterSelection &&
+          !isWaitingThreadCharacter &&
+          shouldShowLimitNotice ? (
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+              <p className="text-xs font-black text-[#FDE68A]">
+                本日のFreeメッセージ上限に達しました
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
+                続きは明日、またはPremium Liteで再開できます。
+              </p>
+            </div>
+          ) : null}
+
           <label className="block">
+
             <span className="sr-only">メッセージ</span>
             <textarea
               name="content"
               placeholder={
-                isWaitingThreadCharacter
-                  ? "このキャラクターは現在待機中です"
-                  : isMessageInputDisabled
-                    ? "本日のFreeメッセージ上限に達しました"
-                    : `${characterName}に話しかける`
+                needsActiveCharacterSelection
+                  ? "先に使うキャラクターを選んでください"
+                  : isWaitingThreadCharacter
+                    ? "このキャラクターは現在待機中です"
+                    : isMessageInputDisabled
+                      ? "本日のFreeメッセージ上限に達しました"
+                      : `${characterName}に話しかける`
               }
               rows={3}
               required
@@ -671,7 +750,11 @@ export default async function ChatPage({
 
           <div className="mt-3 flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              {isWaitingThreadCharacter ? (
+              {needsActiveCharacterSelection ? (
+                <p className="truncate text-[11px] text-[#FACC15]">
+                  使うキャラの選択が必要です
+                </p>
+              ) : isWaitingThreadCharacter ? (
                 <p className="truncate text-[11px] text-[#FACC15]">
                   Freeプランでは待機中
                 </p>
@@ -686,17 +769,26 @@ export default async function ChatPage({
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={isMessageInputDisabled}
-              className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isWaitingThreadCharacter
-                ? "待機中"
-                : isMessageInputDisabled
-                  ? "今日はここまで"
-                  : "送信"}
-            </button>
+            {needsActiveCharacterSelection ? (
+              <Link
+                href="/app/characters/select-active"
+                className="shrink-0 rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition hover:scale-[1.02] hover:opacity-95"
+              >
+                選ぶ
+              </Link>
+            ) : (
+              <button
+                type="submit"
+                disabled={isMessageInputDisabled}
+                className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {isWaitingThreadCharacter
+                  ? "待機中"
+                  : isMessageInputDisabled
+                    ? "今日はここまで"
+                    : "送信"}
+              </button>
+            )}
           </div>
         </div>
       </form>
