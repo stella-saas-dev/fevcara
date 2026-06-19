@@ -46,7 +46,9 @@ function getCharacterFromRelation(characterRelation: CharacterRelation) {
   return characterRelation;
 }
 
-function getCharacterName(character: ReturnType<typeof getCharacterFromRelation>) {
+function getCharacterName(
+  character: ReturnType<typeof getCharacterFromRelation>,
+) {
   if (!character) {
     return "キャラクター";
   }
@@ -58,8 +60,19 @@ function getCharacterName(character: ReturnType<typeof getCharacterFromRelation>
   );
 }
 
+function getAvatarText(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return "◇";
+  }
+
+  return trimmedName.slice(0, 1);
+}
+
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
@@ -67,19 +80,26 @@ function formatDateTime(value: string) {
   });
 }
 
-function getMessagePreview(message: MessageRow | undefined) {
+function getMessagePreview(
+  message: MessageRow | undefined,
+  characterName: string,
+) {
   if (!message) {
-    return "まだメッセージはありません。";
+    return "まだ会話はありません。最初のひと言を送ってみましょう。";
   }
 
-  const prefix = message.sender_type === "user" ? "あなた：" : "キャラ：";
+  const senderName = message.sender_type === "user" ? "あなた" : characterName;
   const content = message.content.replace(/\s+/g, " ").trim();
 
-  if (content.length > 60) {
-    return `${prefix}${content.slice(0, 60)}…`;
+  if (!content) {
+    return `${senderName}：メッセージ`;
   }
 
-  return `${prefix}${content}`;
+  if (content.length > 70) {
+    return `${senderName}：${content.slice(0, 70)}…`;
+  }
+
+  return `${senderName}：${content}`;
 }
 
 export default async function ChatsPage() {
@@ -140,29 +160,51 @@ export default async function ChatsPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-28 pt-6 text-[#F4F1EA] sm:px-5">
       <section className="mx-auto w-full max-w-md">
-        <header>
-          <Link
-            href="/app"
-            className="text-sm text-[#A7B0C0] hover:text-[#F4F1EA]"
-          >
-            ← ホームへ戻る
-          </Link>
+        <header className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/app"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#7DD3FC]/40 hover:text-[#F4F1EA]"
+            >
+              ← ホーム
+            </Link>
 
-          <p className="mt-8 text-sm font-semibold tracking-[0.24em] text-[#FACC15]">
+            <Link
+              href="/app/characters"
+              className="rounded-full border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-2 text-xs font-black text-[#D9F99D] transition hover:bg-[#BEF264]/15"
+            >
+              キャラ一覧
+            </Link>
+          </div>
+
+          <p className="mt-6 text-[11px] font-black tracking-[0.24em] text-[#FACC15]">
             CHATS
           </p>
-          <h1 className="mt-2 text-3xl font-black">チャット一覧</h1>
-          <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
-            キャラクターとの会話を最近話した順に表示します。
-            前の相談や会話の続きに戻れます。
-          </p>
+
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black">チャット</h1>
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                最近話したキャラクターから順に表示します。
+              </p>
+            </div>
+
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center">
+              <p className="text-xl font-black text-[#F4F1EA]">
+                {threads.length}
+              </p>
+              <p className="text-[10px] font-semibold text-[#A7B0C0]">
+                chats
+              </p>
+            </div>
+          </div>
         </header>
 
         {threads.length === 0 ? (
-          <div className="mt-8 rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#BEF264]/10 text-2xl">
+          <div className="mt-6 rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center shadow-xl shadow-black/20">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 text-2xl font-black text-[#D9F99D]">
               ◇
             </div>
 
@@ -172,79 +214,95 @@ export default async function ChatsPage() {
 
             <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
               キャラクター詳細ページから「話しかける」を押すと、
-              ここにチャットが表示されます。
+              ここに会話が表示されます。
             </p>
 
-            <Link
-              href="/app/characters"
-              className="mt-6 block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F]"
-            >
-              キャラクター一覧へ
-            </Link>
+            <div className="mt-6 grid gap-3">
+              <Link
+                href="/app/characters"
+                className="block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20"
+              >
+                キャラクター一覧へ
+              </Link>
+
+              <Link
+                href="/app/characters/new"
+                className="block rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-bold text-[#F4F1EA] transition hover:border-[#BEF264]/30"
+              >
+                新しいキャラクターを作る
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-3">
             {threads.map((thread) => {
               const character = getCharacterFromRelation(thread.characters);
               const characterName = getCharacterName(character);
               const latestMessage = latestMessageMap.get(thread.id);
+              const isGroupChat = thread.chat_type === "group";
 
               return (
                 <Link
                   key={thread.id}
                   href={`/app/chat/${thread.id}`}
-                  className="block rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/20 transition hover:scale-[1.01] hover:border-[#7DD3FC]/30 hover:bg-[#172033]"
+                  className="group block rounded-[1.75rem] border border-white/10 bg-[#111827]/82 p-4 shadow-xl shadow-black/20 transition hover:scale-[1.01] hover:border-[#7DD3FC]/35 hover:bg-[#172033]"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-2xl">
-                      ◇
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-xl font-black text-[#F4F1EA] shadow-lg shadow-[#7DD3FC]/10">
+                      {isGroupChat ? "群" : getAvatarText(characterName)}
+                      <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border border-[#0B1020] bg-[#BEF264]" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold tracking-[0.18em] text-[#7DD3FC]">
-                            {thread.chat_type === "group"
-                              ? "GROUP CHAT"
-                              : "SINGLE CHAT"}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-lg font-black leading-tight">
+                              {characterName}
+                            </p>
 
-                          <h2 className="mt-1 break-words text-xl font-black">
-                            {characterName}
-                          </h2>
+                            {isGroupChat ? (
+                              <span className="shrink-0 rounded-full border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-2 py-0.5 text-[10px] font-black text-[#BAE6FD]">
+                                GROUP
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {character?.role_name ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#D9F99D]">
+                              {character.role_name}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-xs font-semibold text-[#7DD3FC]">
+                              SINGLE CHAT
+                            </p>
+                          )}
                         </div>
 
-                        <p className="shrink-0 text-[11px] text-[#7D8AA3]">
+                        <p className="shrink-0 pt-0.5 text-[10px] text-[#7D8AA3]">
                           {formatDateTime(thread.updated_at)}
                         </p>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {character?.role_name ? (
-                          <span className="rounded-full border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-1 text-xs text-[#D9F99D]">
-                            {character.role_name}
-                          </span>
-                        ) : null}
-
-                        {character?.default_expression ? (
-                          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-[#A7B0C0]">
-                            {character.default_expression}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <p className="mt-4 line-clamp-2 text-sm leading-6 text-[#D8DEE9]">
-                        {getMessagePreview(latestMessage)}
+                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#C9D2E3]">
+                        {getMessagePreview(latestMessage, characterName)}
                       </p>
+                    </div>
 
-                      <p className="mt-3 text-xs font-semibold text-[#BAE6FD]">
-                        チャットを開く →
-                      </p>
+                    <div className="hidden shrink-0 text-[#7D8AA3] transition group-hover:translate-x-0.5 group-hover:text-[#BAE6FD] sm:block">
+                      →
                     </div>
                   </div>
                 </Link>
               );
             })}
+
+            <Link
+              href="/app/characters"
+              className="block rounded-[1.5rem] border border-dashed border-white/15 bg-white/[0.03] px-5 py-4 text-center text-sm font-bold text-[#A7B0C0] transition hover:border-[#BEF264]/30 hover:text-[#F4F1EA]"
+            >
+              別のキャラクターに話しかける
+            </Link>
           </div>
         )}
       </section>
