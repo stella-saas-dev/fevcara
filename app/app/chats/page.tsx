@@ -38,6 +38,37 @@ type MessageRow = {
   created_at: string;
 };
 
+type ProfileForCharacterAccess = {
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
+};
+
+type ProfileQueryRow = {
+  plan: string | null;
+  active_character_id?: string | null;
+  character_limit_choice_locked?: boolean | null;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function isPaidPlan(plan: string | null) {
+  const normalizedPlan = normalizePlan(plan);
+
+  return (
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("lite") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  );
+}
+
+function isFreePlan(plan: string | null) {
+  return !isPaidPlan(plan);
+}
+
 function getCharacterFromRelation(characterRelation: CharacterRelation) {
   if (Array.isArray(characterRelation)) {
     return characterRelation[0] ?? null;
@@ -113,6 +144,34 @@ export default async function ChatsPage() {
     redirect("/login");
   }
 
+  let profileForCharacterAccess: ProfileForCharacterAccess = {
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  };
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("plan, active_character_id, character_limit_choice_locked")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileData) {
+    const profile = profileData as ProfileQueryRow;
+
+    profileForCharacterAccess = {
+      plan: profile.plan ?? "free",
+      active_character_id: profile.active_character_id ?? null,
+      character_limit_choice_locked:
+        profile.character_limit_choice_locked ?? false,
+    };
+  }
+
+  const isFreeCharacterLocked =
+    isFreePlan(profileForCharacterAccess.plan) &&
+    Boolean(profileForCharacterAccess.character_limit_choice_locked) &&
+    Boolean(profileForCharacterAccess.active_character_id);
+
   const { data: threadsData } = await supabase
     .from("chat_threads")
     .select(
@@ -159,6 +218,14 @@ export default async function ChatsPage() {
     }
   });
 
+  const hasWaitingChats = threads.some(
+    (thread) =>
+      isFreeCharacterLocked &&
+      thread.chat_type === "single" &&
+      Boolean(thread.character_id) &&
+      thread.character_id !== profileForCharacterAccess.active_character_id,
+  );
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-28 pt-6 text-[#F4F1EA] sm:px-5">
       <section className="mx-auto w-full max-w-md">
@@ -202,6 +269,18 @@ export default async function ChatsPage() {
           </div>
         </header>
 
+        {hasWaitingChats ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+            <p className="text-sm font-black text-[#FDE68A]">
+              待機中のチャットがあります
+            </p>
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              Freeプランでは、選択した1人のキャラクターだけとチャットできます。
+              待機中のキャラクターは履歴の確認のみできます。
+            </p>
+          </div>
+        ) : null}
+
         {threads.length === 0 ? (
           <div className="mt-6 rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center shadow-xl shadow-black/20">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 text-2xl font-black text-[#D9F99D]">
@@ -241,23 +320,52 @@ export default async function ChatsPage() {
               const latestMessage = latestMessageMap.get(thread.id);
               const isGroupChat = thread.chat_type === "group";
 
+              const isWaitingThreadCharacter =
+                isFreeCharacterLocked &&
+                thread.chat_type === "single" &&
+                Boolean(thread.character_id) &&
+                thread.character_id !==
+                  profileForCharacterAccess.active_character_id;
+
               return (
                 <Link
                   key={thread.id}
                   href={`/app/chat/${thread.id}`}
-                  className="group block rounded-[1.75rem] border border-white/10 bg-[#111827]/82 p-4 shadow-xl shadow-black/20 transition hover:scale-[1.01] hover:border-[#7DD3FC]/35 hover:bg-[#172033]"
+                  className={[
+                    "group block rounded-[1.75rem] border p-4 shadow-xl shadow-black/20 transition hover:scale-[1.01]",
+                    isWaitingThreadCharacter
+                      ? "border-white/5 bg-[#111827]/45 opacity-75 hover:border-[#FACC15]/25 hover:bg-[#151B2A]"
+                      : "border-white/10 bg-[#111827]/82 hover:border-[#7DD3FC]/35 hover:bg-[#172033]",
+                  ].join(" ")}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-xl font-black text-[#F4F1EA] shadow-lg shadow-[#7DD3FC]/10">
+                    <div
+                      className={[
+                        "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border text-xl font-black shadow-lg",
+                        isWaitingThreadCharacter
+                          ? "border-white/10 bg-white/[0.04] text-[#7D8AA3] shadow-black/10"
+                          : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
+                      ].join(" ")}
+                    >
                       {isGroupChat ? "群" : getAvatarText(characterName)}
-                      <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border border-[#0B1020] bg-[#BEF264]" />
+
+                      {!isWaitingThreadCharacter ? (
+                        <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border border-[#0B1020] bg-[#BEF264]" />
+                      ) : null}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-lg font-black leading-tight">
+                            <p
+                              className={[
+                                "truncate text-lg font-black leading-tight",
+                                isWaitingThreadCharacter
+                                  ? "text-[#C6CDD9]"
+                                  : "text-[#F4F1EA]",
+                              ].join(" ")}
+                            >
                               {characterName}
                             </p>
 
@@ -266,9 +374,19 @@ export default async function ChatsPage() {
                                 GROUP
                               </span>
                             ) : null}
+
+                            {isWaitingThreadCharacter ? (
+                              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
+                                待機中
+                              </span>
+                            ) : null}
                           </div>
 
-                          {character?.role_name ? (
+                          {isWaitingThreadCharacter ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
+                              履歴のみ表示できます
+                            </p>
+                          ) : character?.role_name ? (
                             <p className="mt-1 truncate text-xs font-semibold text-[#D9F99D]">
                               {character.role_name}
                             </p>
@@ -284,12 +402,32 @@ export default async function ChatsPage() {
                         </p>
                       </div>
 
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#C9D2E3]">
+                      <p
+                        className={[
+                          "mt-3 line-clamp-2 text-sm leading-6",
+                          isWaitingThreadCharacter
+                            ? "text-[#9AA4B7]"
+                            : "text-[#C9D2E3]",
+                        ].join(" ")}
+                      >
                         {getMessagePreview(latestMessage, characterName)}
                       </p>
+
+                      {isWaitingThreadCharacter ? (
+                        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-[#A7B0C0]">
+                          履歴を見る（待機中）
+                        </p>
+                      ) : null}
                     </div>
 
-                    <div className="hidden shrink-0 text-[#7D8AA3] transition group-hover:translate-x-0.5 group-hover:text-[#BAE6FD] sm:block">
+                    <div
+                      className={[
+                        "hidden shrink-0 transition group-hover:translate-x-0.5 sm:block",
+                        isWaitingThreadCharacter
+                          ? "text-[#7D8AA3] group-hover:text-[#FDE68A]"
+                          : "text-[#7D8AA3] group-hover:text-[#BAE6FD]",
+                      ].join(" ")}
+                    >
                       →
                     </div>
                   </div>
