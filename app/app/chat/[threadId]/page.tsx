@@ -47,6 +47,80 @@ type MessageRow = {
   created_at: string;
 };
 
+type ProfileForUsage = {
+  plan: string | null;
+  created_at: string | null;
+};
+
+type ProfileQueryRow = {
+  plan: string | null;
+  created_at?: string | null;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function isPaidPlan(plan: string | null) {
+  const normalizedPlan = normalizePlan(plan);
+
+  return (
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("lite") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  );
+}
+
+function getJstDateParts(date: Date) {
+  const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+
+  return {
+    year: jstDate.getUTCFullYear(),
+    month: jstDate.getUTCMonth(),
+    date: jstDate.getUTCDate(),
+  };
+}
+
+function getTodayJstRange() {
+  const now = new Date();
+  const { year, month, date } = getJstDateParts(now);
+
+  const startUtcMs =
+    Date.UTC(year, month, date, 0, 0, 0, 0) - 9 * 60 * 60 * 1000;
+  const endUtcMs = startUtcMs + 24 * 60 * 60 * 1000;
+
+  return {
+    start: new Date(startUtcMs).toISOString(),
+    end: new Date(endUtcMs).toISOString(),
+  };
+}
+
+function isSameJstDate(a: Date, b: Date) {
+  const aParts = getJstDateParts(a);
+  const bParts = getJstDateParts(b);
+
+  return (
+    aParts.year === bParts.year &&
+    aParts.month === bParts.month &&
+    aParts.date === bParts.date
+  );
+}
+
+function getDailyMessageLimit(profile: ProfileForUsage) {
+  if (isPaidPlan(profile.plan)) {
+    return null;
+  }
+
+  const createdAt = profile.created_at
+    ? new Date(profile.created_at)
+    : new Date();
+
+  const isFirstDay = isSameJstDate(createdAt, new Date());
+
+  return isFirstDay ? 30 : 10;
+}
+
 function getCharacterFromRelation(characterRelation: CharacterRelation) {
   if (Array.isArray(characterRelation)) {
     return characterRelation[0] ?? null;
@@ -134,6 +208,62 @@ export default async function ChatPage({
 
   const messages = (messagesData ?? []) as MessageRow[];
 
+  let profileForUsage: ProfileForUsage = {
+    plan: "free",
+    created_at: user.created_at ?? new Date().toISOString(),
+  };
+
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("plan, created_at")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileData) {
+    const profile = profileData as ProfileQueryRow;
+
+    profileForUsage = {
+      plan: profile.plan ?? "free",
+      created_at: profile.created_at ?? user.created_at ?? null,
+    };
+  }
+
+  if (profileError) {
+    const { data: fallbackProfileData } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (fallbackProfileData) {
+      const fallbackProfile = fallbackProfileData as ProfileQueryRow;
+
+      profileForUsage = {
+        plan: fallbackProfile.plan ?? "free",
+        created_at: user.created_at ?? null,
+      };
+    }
+  }
+
+  const dailyMessageLimit = getDailyMessageLimit(profileForUsage);
+  let usedMessagesToday = 0;
+  let remainingMessagesToday: number | null = null;
+
+  if (dailyMessageLimit !== null) {
+    const { start, end } = getTodayJstRange();
+
+    const { count } = await supabase
+      .from("usage_events")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("event_type", "chat_user_message")
+      .gte("created_at", start)
+      .lt("created_at", end);
+
+    usedMessagesToday = count ?? 0;
+    remainingMessagesToday = Math.max(dailyMessageLimit - usedMessagesToday, 0);
+  }
+
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-md flex-col">
@@ -176,10 +306,33 @@ export default async function ChatPage({
               </div>
             </div>
 
-            <p className="mt-4 text-xs leading-6 text-[#A7B0C0]">
-              キャラクター設定・役割・専門性をもとに、AI返信を生成します。
-              Freeプランでは通常1日10メッセージまで話せます。
-            </p>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <p className="text-xs leading-6 text-[#A7B0C0]">
+                キャラクター設定・役割・専門性をもとに、AI返信を生成します。
+              </p>
+
+              {dailyMessageLimit !== null ? (
+                <div className="mt-3 rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-3 py-2">
+                  <p className="text-xs font-semibold text-[#FDE68A]">
+                    Freeメッセージ：今日あと{" "}
+                    <span className="text-[#F4F1EA]">
+                      {remainingMessagesToday}
+                    </span>{" "}
+                    / {dailyMessageLimit}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-[#A7B0C0]">
+                    今日は {usedMessagesToday} 通送信済みです。
+                    初回登録日は30メッセージ、通常日は10メッセージまで話せます。
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-2">
+                  <p className="text-xs font-semibold text-[#D9F99D]">
+                    Premiumプラン：メッセージ上限が拡張されています。
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
