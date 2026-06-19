@@ -5,10 +5,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createOpenAIClient, getOpenAIModel } from "@/lib/openai/client";
 
-const RECENT_MESSAGE_LIMIT = 12;
-const SUMMARY_KEEP_RECENT_COUNT = 12;
-const SUMMARY_TRIGGER_MESSAGE_COUNT = 20;
-
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -20,6 +16,19 @@ function redirectWithError(threadId: string, message: string): never {
 function redirectWithLimit(threadId: string): never {
   redirect(`/app/chat/${threadId}?limit=free_daily_message`);
 }
+
+type PlanTier = "free" | "premium_lite" | "premium";
+
+type ChatMemoryConfig = {
+  planTier: PlanTier;
+  recentMessageLimit: number;
+  summaryKeepRecentCount: number;
+  summaryTriggerMessageCount: number;
+  summaryMaxOutputTokens: number;
+  maxImportantFacts: number;
+  maxOpenQuestions: number;
+  maxUserPreferences: number;
+};
 
 type ProfileForLimit = {
   id: string;
@@ -92,6 +101,72 @@ type GeneratedSummary = {
   user_preferences: string[];
 };
 
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function getPlanTier(plan: string | null): PlanTier {
+  const normalizedPlan = normalizePlan(plan);
+
+  if (
+    normalizedPlan.includes("premium") &&
+    normalizedPlan.includes("lite")
+  ) {
+    return "premium_lite";
+  }
+
+  if (
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  ) {
+    return "premium";
+  }
+
+  return "free";
+}
+
+function getChatMemoryConfig(plan: string | null): ChatMemoryConfig {
+  const planTier = getPlanTier(plan);
+
+  if (planTier === "premium") {
+    return {
+      planTier,
+      recentMessageLimit: 24,
+      summaryKeepRecentCount: 24,
+      summaryTriggerMessageCount: 16,
+      summaryMaxOutputTokens: 1600,
+      maxImportantFacts: 30,
+      maxOpenQuestions: 16,
+      maxUserPreferences: 30,
+    };
+  }
+
+  if (planTier === "premium_lite") {
+    return {
+      planTier,
+      recentMessageLimit: 16,
+      summaryKeepRecentCount: 16,
+      summaryTriggerMessageCount: 20,
+      summaryMaxOutputTokens: 1200,
+      maxImportantFacts: 16,
+      maxOpenQuestions: 10,
+      maxUserPreferences: 16,
+    };
+  }
+
+  return {
+    planTier,
+    recentMessageLimit: 12,
+    summaryKeepRecentCount: 12,
+    summaryTriggerMessageCount: 24,
+    summaryMaxOutputTokens: 900,
+    maxImportantFacts: 8,
+    maxOpenQuestions: 5,
+    maxUserPreferences: 8,
+  };
+}
+
 function getCharacterName(character: CharacterForPrompt) {
   return (
     character.final_name ||
@@ -136,9 +211,9 @@ function isSameJstDate(a: Date, b: Date) {
 }
 
 function getDailyMessageLimit(profile: ProfileForLimit) {
-  const plan = profile.plan || "free";
+  const planTier = getPlanTier(profile.plan);
 
-  if (plan !== "free") {
+  if (planTier !== "free") {
     return null;
   }
 
@@ -168,6 +243,7 @@ async function checkAndRecordMessageUsage({
 
   const profile = profileData as ProfileForLimit;
   const dailyLimit = getDailyMessageLimit(profile);
+  const planTier = getPlanTier(profile.plan);
 
   if (dailyLimit === null) {
     await supabase.from("usage_events").insert({
@@ -177,10 +253,11 @@ async function checkAndRecordMessageUsage({
       metadata: {
         thread_id: threadId,
         plan: profile.plan || "free",
+        plan_tier: planTier,
       },
     });
 
-    return;
+    return profile;
   }
 
   const { start, end } = getTodayJstRange();
@@ -210,6 +287,7 @@ async function checkAndRecordMessageUsage({
     metadata: {
       thread_id: threadId,
       plan: profile.plan || "free",
+      plan_tier: planTier,
       daily_limit: dailyLimit,
       used_before_send: usedCount,
       reset_basis: "Asia/Tokyo",
@@ -219,6 +297,8 @@ async function checkAndRecordMessageUsage({
   if (usageInsertError) {
     redirectWithError(threadId, "利用回数の記録に失敗しました。");
   }
+
+  return profile;
 }
 
 function toStringList(value: unknown) {
@@ -360,14 +440,28 @@ function extractJsonObject(text: string) {
   return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
 }
 
-function normalizeGeneratedSummary(raw: Record<string, unknown>): GeneratedSummary {
+function normalizeGeneratedSummary(
+  raw: Record<string, unknown>,
+  memoryConfig: ChatMemoryConfig,
+): GeneratedSummary {
   const summaryText = String(raw.summary_text ?? "").trim();
 
   return {
-    summary_text: summaryText || "この会話では、ユーザーとキャラクターが継続的に相談・会話を行った。",
-    important_facts: toStringList(raw.important_facts).slice(0, 20),
-    open_questions: toStringList(raw.open_questions).slice(0, 12),
-    user_preferences: toStringList(raw.user_preferences).slice(0, 20),
+    summary_text:
+      summaryText ||
+      "この会話では、ユーザーとキャラクターが継続的に相談・会話を行った。",
+    important_facts: toStringList(raw.important_facts).slice(
+      0,
+      memoryConfig.maxImportantFacts,
+    ),
+    open_questions: toStringList(raw.open_questions).slice(
+      0,
+      memoryConfig.maxOpenQuestions,
+    ),
+    user_preferences: toStringList(raw.user_preferences).slice(
+      0,
+      memoryConfig.maxUserPreferences,
+    ),
   };
 }
 
@@ -408,12 +502,14 @@ async function summarizeThreadIfNeeded({
   threadId,
   character,
   currentSummary,
+  memoryConfig,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
   threadId: string;
   character: CharacterForPrompt;
   currentSummary: ChatThreadSummary | null;
+  memoryConfig: ChatMemoryConfig;
 }) {
   try {
     let query = supabase
@@ -437,17 +533,22 @@ async function summarizeThreadIfNeeded({
       return;
     }
 
-    const unsummarizedMessages = ((unsummarizedData ?? []) as MessageForSummary[]).filter(
+    const unsummarizedMessages = (
+      (unsummarizedData ?? []) as MessageForSummary[]
+    ).filter(
       (message) =>
         message.sender_type === "user" || message.sender_type === "character",
     );
 
     const messagesToSummarize = unsummarizedMessages.slice(
       0,
-      Math.max(0, unsummarizedMessages.length - SUMMARY_KEEP_RECENT_COUNT),
+      Math.max(
+        0,
+        unsummarizedMessages.length - memoryConfig.summaryKeepRecentCount,
+      ),
     );
 
-    if (messagesToSummarize.length < SUMMARY_TRIGGER_MESSAGE_COUNT) {
+    if (messagesToSummarize.length < memoryConfig.summaryTriggerMessageCount) {
       return;
     }
 
@@ -470,6 +571,7 @@ async function summarizeThreadIfNeeded({
 # 絶対ルール
 - 日本語で出力してください。
 - 出力はJSONオブジェクトのみ。説明文やMarkdownは不要です。
+- 既存の長期メモがある場合は、追加会話だけでなく既存メモも踏まえて、更新版の長期メモとして統合してください。
 - ユーザーの個人情報・好み・継続中の相談・決定事項を優先してください。
 - 一時的な雑談、相槌、重複情報は捨ててください。
 - 医療・法律・金融などの高リスク情報は、断定的な記憶にしすぎないでください。
@@ -487,20 +589,31 @@ async function summarizeThreadIfNeeded({
 # キャラクター
 ${characterName}
 
+# 記憶プラン
+${memoryConfig.planTier}
+
 # 既存の長期メモ
 ${currentSummary?.summary_text || "なし"}
+
+# 既存の重要な事実
+${formatStringListForPrompt("重要な事実", currentSummary?.important_facts)}
+
+# 既存の未解決の相談
+${formatStringListForPrompt("未解決の相談", currentSummary?.open_questions)}
+
+# 既存のユーザーの好み
+${formatStringListForPrompt("ユーザーの好み", currentSummary?.user_preferences)}
 
 # 追加で要約する会話
 ${formatMessagesForSummary(messagesToSummarize)}
 `.trim(),
-      max_output_tokens: 1200,
+      max_output_tokens: memoryConfig.summaryMaxOutputTokens,
     });
 
     const generatedSummary = normalizeGeneratedSummary(
       extractJsonObject(summaryResponse.output_text?.trim() || ""),
+      memoryConfig,
     );
-
-    const mergedSummaryText = generatedSummary.summary_text;
 
     const { error: upsertError } = await supabase
       .from("chat_thread_summaries")
@@ -509,7 +622,7 @@ ${formatMessagesForSummary(messagesToSummarize)}
           user_id: userId,
           thread_id: threadId,
           character_id: character.id,
-          summary_text: mergedSummaryText,
+          summary_text: generatedSummary.summary_text,
           important_facts: generatedSummary.important_facts,
           open_questions: generatedSummary.open_questions,
           user_preferences: generatedSummary.user_preferences,
@@ -522,8 +635,13 @@ ${formatMessagesForSummary(messagesToSummarize)}
           metadata: {
             model: getOpenAIModel(),
             strategy: "rolling_thread_summary",
-            keep_recent_message_count: SUMMARY_KEEP_RECENT_COUNT,
-            trigger_message_count: SUMMARY_TRIGGER_MESSAGE_COUNT,
+            plan_tier: memoryConfig.planTier,
+            recent_message_limit: memoryConfig.recentMessageLimit,
+            keep_recent_message_count: memoryConfig.summaryKeepRecentCount,
+            trigger_message_count: memoryConfig.summaryTriggerMessageCount,
+            max_important_facts: memoryConfig.maxImportantFacts,
+            max_open_questions: memoryConfig.maxOpenQuestions,
+            max_user_preferences: memoryConfig.maxUserPreferences,
             generated_at: new Date().toISOString(),
           },
         },
@@ -581,11 +699,13 @@ export async function sendUserMessage(formData: FormData) {
     redirectWithError(threadId, "このチャット形式はまだ対応していません。");
   }
 
-  await checkAndRecordMessageUsage({
+  const profile = await checkAndRecordMessageUsage({
     supabase,
     userId: user.id,
     threadId: thread.id,
   });
+
+  const memoryConfig = getChatMemoryConfig(profile.plan);
 
   const { data: characterData, error: characterError } = await supabase
     .from("characters")
@@ -652,7 +772,7 @@ export async function sendUserMessage(formData: FormData) {
     .eq("thread_id", thread.id)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(RECENT_MESSAGE_LIMIT);
+    .limit(memoryConfig.recentMessageLimit);
 
   const recentMessages = ((recentMessagesData ?? []) as MessageForPrompt[])
     .reverse()
@@ -696,6 +816,8 @@ export async function sendUserMessage(formData: FormData) {
       content: aiReply,
       metadata: {
         model: getOpenAIModel(),
+        plan_tier: memoryConfig.planTier,
+        recent_message_limit: memoryConfig.recentMessageLimit,
       },
     });
 
@@ -709,6 +831,7 @@ export async function sendUserMessage(formData: FormData) {
     threadId: thread.id,
     character,
     currentSummary,
+    memoryConfig,
   });
 
   await supabase
