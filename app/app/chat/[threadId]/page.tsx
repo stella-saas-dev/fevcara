@@ -10,6 +10,7 @@ type ChatPageProps = {
   }>;
   searchParams: Promise<{
     error?: string;
+    limit?: string;
   }>;
 };
 
@@ -54,7 +55,9 @@ function getCharacterFromRelation(characterRelation: CharacterRelation) {
   return characterRelation;
 }
 
-function getCharacterName(character: ReturnType<typeof getCharacterFromRelation>) {
+function getCharacterName(
+  character: ReturnType<typeof getCharacterFromRelation>,
+) {
   if (!character) {
     return "キャラクター";
   }
@@ -81,6 +84,7 @@ export default async function ChatPage({
 }: ChatPageProps) {
   const { threadId } = await params;
   const query = await searchParams;
+  const isFreeDailyLimitReached = query.limit === "free_daily_message";
 
   const supabase = await createClient();
 
@@ -173,7 +177,8 @@ export default async function ChatPage({
             </div>
 
             <p className="mt-4 text-xs leading-6 text-[#A7B0C0]">
-              今はチャット保存テスト段階です。AI返信は次のステップで接続します。
+              キャラクター設定・役割・専門性をもとに、AI返信を生成します。
+              Freeプランでは通常1日10メッセージまで話せます。
             </p>
           </div>
         </header>
@@ -181,6 +186,21 @@ export default async function ChatPage({
         {query.error ? (
           <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
             {query.error}
+          </div>
+        ) : null}
+
+        {isFreeDailyLimitReached ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A]">
+            <p className="font-black text-[#FDE68A]">
+              この子はまだ話したそうにしています。
+            </p>
+            <p className="mt-2 text-[#F4F1EA]">
+              続きは明日、またはPremium Liteで今すぐ再開できます。
+            </p>
+            <p className="mt-3 text-xs leading-5 text-[#A7B0C0]">
+              Freeプランでは、通常1日10メッセージまで話せます。
+              初回登録日は30メッセージまで体験できます。
+            </p>
           </div>
         ) : null}
 
@@ -224,7 +244,7 @@ export default async function ChatPage({
                 まだ会話はありません
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
-                最初のひと言を送って、チャット保存の動作を確認しましょう。
+                最初のひと言を送って、このキャラクターと話し始めましょう。
               </p>
             </div>
           )}
@@ -242,18 +262,24 @@ export default async function ChatPage({
             </span>
             <textarea
               name="content"
-              placeholder={`${characterName}に話しかける`}
+              placeholder={
+                isFreeDailyLimitReached
+                  ? "本日のFreeメッセージ上限に達しました"
+                  : `${characterName}に話しかける`
+              }
               rows={4}
               required
-              className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
+              disabled={isFreeDailyLimitReached}
+              className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm outline-none placeholder:text-[#6B7280] disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/60"
             />
           </label>
 
           <button
             type="submit"
-            className="mt-3 w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+            disabled={isFreeDailyLimitReached}
+            className="mt-3 w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
           >
-            送信する
+            {isFreeDailyLimitReached ? "本日のFree上限に達しました" : "送信する"}
           </button>
         </form>
       </section>

@@ -536,3 +536,9 @@ on public.chat_messages
 for delete
 to authenticated
 using ((select auth.uid()) = user_id);
+
+
+
+
+create index if not exists usage_events_user_type_created_at_idx
+on public.usage_events (user_id, event_type, created_at desc);
