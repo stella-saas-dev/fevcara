@@ -210,6 +210,18 @@ export default async function CharacterDetailPage({
     character_limit_choice_locked: false,
   }) as ProfileForCharacterAccess;
 
+  const { count: characterCount } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  const totalCharacters = characterCount ?? 0;
+
+  const needsActiveCharacterSelection =
+    isFreePlan(profile.plan) &&
+    totalCharacters > 1 &&
+    !profile.character_limit_choice_locked;
+
   const isWaitingCharacter =
     isFreePlan(profile.plan) &&
     Boolean(profile.character_limit_choice_locked) &&
@@ -256,18 +268,22 @@ export default async function CharacterDetailPage({
           <div
             className={[
               "mt-8 rounded-[2rem] border p-5 shadow-2xl shadow-black/30",
-              isWaitingCharacter
-                ? "border-white/10 bg-[#111827]/60 opacity-85"
-                : "border-white/10 bg-gradient-to-br from-[#111827] to-[#0B1020]",
+              needsActiveCharacterSelection
+                ? "border-[#F9A8D4]/25 bg-[#111827]/80 shadow-[#F9A8D4]/10"
+                : isWaitingCharacter
+                  ? "border-white/10 bg-[#111827]/60 opacity-85"
+                  : "border-white/10 bg-gradient-to-br from-[#111827] to-[#0B1020]",
             ].join(" ")}
           >
             <div className="flex items-start gap-4">
               <div
                 className={[
                   "flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border text-3xl font-black",
-                  isWaitingCharacter
-                    ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
-                    : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
+                  needsActiveCharacterSelection
+                    ? "border-[#F9A8D4]/45 bg-[#F9A8D4]/15 text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15"
+                    : isWaitingCharacter
+                      ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
+                      : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
                 ].join(" ")}
               >
                 {characterName.slice(0, 1)}
@@ -282,13 +298,19 @@ export default async function CharacterDetailPage({
                 </h1>
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {needsActiveCharacterSelection ? (
+                    <span className="rounded-full border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-3 py-1 text-xs font-black text-[#FCE7F3]">
+                      選択が必要
+                    </span>
+                  ) : null}
+
                   {isActiveFreeCharacter ? (
                     <span className="rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-3 py-1 text-xs font-black text-[#D9F99D]">
                       Freeで利用中
                     </span>
                   ) : null}
 
-                  {isWaitingCharacter ? (
+                  {!needsActiveCharacterSelection && isWaitingCharacter ? (
                     <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
                       待機中
                     </span>
@@ -318,7 +340,27 @@ export default async function CharacterDetailPage({
           </div>
         ) : null}
 
-        {isWaitingCharacter ? (
+        {needsActiveCharacterSelection ? (
+          <div className="mt-6 rounded-[2rem] border border-[#F9A8D4]/30 bg-[#F9A8D4]/10 p-5 shadow-xl shadow-[#F9A8D4]/10">
+            <p className="text-sm font-black text-[#FCE7F3]">
+              先に使うキャラクターを選んでください
+            </p>
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              現在キャラクターが{totalCharacters}
+              人います。Freeプランでは、チャットできるキャラクターを1人だけ選ぶ必要があります。
+              選ばなかったキャラクターは削除されず、待機中になります。
+            </p>
+
+            <Link
+              href="/app/characters/select-active"
+              className="mt-5 block rounded-2xl bg-gradient-to-r from-[#F9A8D4] via-[#FACC15] to-[#BEF264] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#F9A8D4]/20 transition hover:scale-[1.01] hover:opacity-95"
+            >
+              使うキャラを選ぶ
+            </Link>
+          </div>
+        ) : null}
+
+        {!needsActiveCharacterSelection && isWaitingCharacter ? (
           <div className="mt-6 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
               このキャラクターは待機中です
@@ -343,7 +385,17 @@ export default async function CharacterDetailPage({
               </span>
             </button>
 
-            {isWaitingCharacter ? (
+            {needsActiveCharacterSelection ? (
+              <Link
+                href="/app/characters/select-active"
+                className="block h-full w-full rounded-2xl border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-4 py-4 text-center text-sm font-black text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15 transition hover:bg-[#F9A8D4]/20"
+              >
+                使うキャラを選ぶ
+                <span className="mt-1 block text-xs font-medium text-[#F9A8D4]">
+                  選択が必要
+                </span>
+              </Link>
+            ) : isWaitingCharacter ? (
               <button
                 type="button"
                 disabled
