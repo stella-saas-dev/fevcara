@@ -416,3 +416,123 @@ on public.character_relationships
 for delete
 to authenticated
 using ((select auth.uid()) = user_id);
+
+
+
+
+create table if not exists public.chat_threads (
+  id uuid primary key default gen_random_uuid(),
+
+  user_id uuid not null references public.profiles(id) on delete cascade,
+
+  title text,
+  chat_type text not null default 'single',
+  character_id uuid references public.characters(id) on delete cascade,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint chat_threads_chat_type_check
+    check (chat_type in ('single', 'group'))
+);
+
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+
+  character_id uuid references public.characters(id) on delete set null,
+
+  sender_type text not null,
+  content text not null,
+
+  metadata jsonb not null default '{}'::jsonb,
+
+  created_at timestamptz not null default now(),
+
+  constraint chat_messages_sender_type_check
+    check (sender_type in ('user', 'character', 'system'))
+);
+
+drop trigger if exists set_chat_threads_updated_at
+on public.chat_threads;
+
+create trigger set_chat_threads_updated_at
+before update on public.chat_threads
+for each row execute function public.set_updated_at();
+
+alter table public.chat_threads enable row level security;
+alter table public.chat_messages enable row level security;
+
+drop policy if exists "Users can view own chat threads"
+on public.chat_threads;
+
+create policy "Users can view own chat threads"
+on public.chat_threads
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert own chat threads"
+on public.chat_threads;
+
+create policy "Users can insert own chat threads"
+on public.chat_threads
+for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update own chat threads"
+on public.chat_threads;
+
+create policy "Users can update own chat threads"
+on public.chat_threads
+for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete own chat threads"
+on public.chat_threads;
+
+create policy "Users can delete own chat threads"
+on public.chat_threads
+for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can view own chat messages"
+on public.chat_messages;
+
+create policy "Users can view own chat messages"
+on public.chat_messages
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert own chat messages"
+on public.chat_messages;
+
+create policy "Users can insert own chat messages"
+on public.chat_messages
+for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.chat_threads t
+    where t.id = thread_id
+      and t.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can delete own chat messages"
+on public.chat_messages;
+
+create policy "Users can delete own chat messages"
+on public.chat_messages
+for delete
+to authenticated
+using ((select auth.uid()) = user_id);
