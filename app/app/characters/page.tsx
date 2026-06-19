@@ -7,6 +7,7 @@ type CharactersPageProps = {
   searchParams: Promise<{
     created?: string;
     active_selected?: string;
+    deleted?: string;
   }>;
 };
 
@@ -241,6 +242,12 @@ export default async function CharactersPage({
         {params.active_selected ? (
           <div className="mt-6 rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 p-4 text-sm leading-6 text-[#D9F99D]">
             Freeで使うキャラクターを選択しました。選ばなかったキャラクターは待機中になります。
+          </div>
+        ) : null}
+
+        {params.deleted ? (
+          <div className="mt-6 rounded-2xl border border-red-400/25 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+            キャラクターを削除しました。関連する1対1チャット履歴と長期メモも整理されました。
           </div>
         ) : null}
 
