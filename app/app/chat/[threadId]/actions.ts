@@ -36,6 +36,12 @@ type ProfileForLimit = {
   created_at: string;
 };
 
+type ProfileForCharacterAccess = {
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
+};
+
 type CharacterForPrompt = {
   id: string;
   temporary_name: string | null;
@@ -108,10 +114,7 @@ function normalizePlan(plan: string | null) {
 function getPlanTier(plan: string | null): PlanTier {
   const normalizedPlan = normalizePlan(plan);
 
-  if (
-    normalizedPlan.includes("premium") &&
-    normalizedPlan.includes("lite")
-  ) {
+  if (normalizedPlan.includes("premium") && normalizedPlan.includes("lite")) {
     return "premium_lite";
   }
 
@@ -124,6 +127,10 @@ function getPlanTier(plan: string | null): PlanTier {
   }
 
   return "free";
+}
+
+function isFreePlan(plan: string | null) {
+  return getPlanTier(plan) === "free";
 }
 
 function getChatMemoryConfig(plan: string | null): ChatMemoryConfig {
@@ -220,6 +227,61 @@ function getDailyMessageLimit(profile: ProfileForLimit) {
   const isFirstDay = isSameJstDate(new Date(profile.created_at), new Date());
 
   return isFirstDay ? 30 : 10;
+}
+
+async function assertCanUseThreadCharacter({
+  supabase,
+  userId,
+  threadId,
+  characterId,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  threadId: string;
+  characterId: string;
+}) {
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("plan, active_character_id, character_limit_choice_locked")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const profile = (profileData ?? {
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  }) as ProfileForCharacterAccess;
+
+  if (!isFreePlan(profile.plan)) {
+    return;
+  }
+
+  const { count, error: countError } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (countError) {
+    redirectWithError(threadId, "キャラクター数の確認に失敗しました。");
+  }
+
+  const characterCount = count ?? 0;
+
+  if (characterCount > 1 && !profile.character_limit_choice_locked) {
+    redirect("/app/characters/select-active");
+  }
+
+  const isWaitingCharacter =
+    Boolean(profile.character_limit_choice_locked) &&
+    Boolean(profile.active_character_id) &&
+    profile.active_character_id !== characterId;
+
+  if (isWaitingCharacter) {
+    redirectWithError(
+      threadId,
+      "このキャラクターは現在のFreeプランでは待機中です。Premium Lite以上で再開できます。",
+    );
+  }
 }
 
 async function checkAndRecordMessageUsage({
@@ -698,6 +760,13 @@ export async function sendUserMessage(formData: FormData) {
   if (thread.chat_type !== "single" || !thread.character_id) {
     redirectWithError(threadId, "このチャット形式はまだ対応していません。");
   }
+
+  await assertCanUseThreadCharacter({
+    supabase,
+    userId: user.id,
+    threadId: thread.id,
+    characterId: thread.character_id,
+  });
 
   const profile = await checkAndRecordMessageUsage({
     supabase,
