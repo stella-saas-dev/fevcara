@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
 import { sendUserMessage } from "./actions";
+import { ScrollToLatestMessage } from "./ScrollToLatestMessage";
 
 type ChatPageProps = {
   params: Promise<{
@@ -341,11 +342,14 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
   const isMessageInputDisabled =
     isFreeDailyLimitReached || hasNoFreeMessages;
   const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
+  const latestMessageKey =
+    messages.length > 0 ? messages[messages.length - 1].id : "empty";
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
+      <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
       <section className="mx-auto w-full max-w-md">
-        <header className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
+       <header className="sticky top-3 z-30 rounded-[2rem] border border-white/10 bg-[#111827]/90 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/app/chats"
