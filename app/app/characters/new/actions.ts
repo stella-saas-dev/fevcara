@@ -21,6 +21,141 @@ function redirectWithError(message: string): never {
   redirect(`/app/characters/new?error=${encodeURIComponent(message)}`);
 }
 
+type ProfileForCharacterLimit = {
+  id: string;
+  plan: string | null;
+};
+
+type PlanTier = "free" | "premium_lite" | "premium";
+
+type CharacterLimitConfig = {
+  planTier: PlanTier;
+  limit: number;
+  label: string;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function getPlanTier(plan: string | null): PlanTier {
+  const normalizedPlan = normalizePlan(plan);
+
+  if (normalizedPlan.includes("lite")) {
+    return "premium_lite";
+  }
+
+  if (
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  ) {
+    return "premium";
+  }
+
+  return "free";
+}
+
+function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+  const planTier = getPlanTier(plan);
+
+  if (planTier === "premium") {
+    return {
+      planTier,
+      limit: 10,
+      label: "Premium",
+    };
+  }
+
+  if (planTier === "premium_lite") {
+    return {
+      planTier,
+      limit: 3,
+      label: "Premium Lite",
+    };
+  }
+
+  return {
+    planTier,
+    limit: 1,
+    label: "Free",
+  };
+}
+
+async function getOrCreateProfile({
+  supabase,
+  userId,
+  email,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  email: string | undefined;
+}) {
+  const { data: profileData, error: profileFetchError } = await supabase
+    .from("profiles")
+    .select("id, plan")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileFetchError) {
+    redirectWithError("プロフィール情報の取得に失敗しました。");
+  }
+
+  if (profileData) {
+    return profileData as ProfileForCharacterLimit;
+  }
+
+  const { data: createdProfileData, error: profileInsertError } = await supabase
+    .from("profiles")
+    .insert({
+      id: userId,
+      email,
+      plan: "free",
+    })
+    .select("id, plan")
+    .single();
+
+  if (profileInsertError || !createdProfileData) {
+    redirectWithError("プロフィールの作成に失敗しました。");
+  }
+
+  return createdProfileData as ProfileForCharacterLimit;
+}
+
+async function checkCharacterCreateLimit({
+  supabase,
+  userId,
+  plan,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  plan: string | null;
+}) {
+  const limitConfig = getCharacterLimitConfig(plan);
+
+  const { count, error: countError } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (countError) {
+    redirectWithError("キャラクター数の確認に失敗しました。");
+  }
+
+  const currentCount = count ?? 0;
+
+  if (currentCount >= limitConfig.limit) {
+    redirectWithError(
+      `${limitConfig.label}プランではキャラクターを${limitConfig.limit}人まで作成できます。現在 ${currentCount} / ${limitConfig.limit} 人です。`,
+    );
+  }
+
+  return {
+    currentCount,
+    ...limitConfig,
+  };
+}
+
 export async function createCharacter(formData: FormData) {
   const supabase = await createClient();
 
@@ -39,23 +174,17 @@ export async function createCharacter(formData: FormData) {
     redirectWithError("キャラクターの仮名を入力してください。");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .single();
+  const profile = await getOrCreateProfile({
+    supabase,
+    userId: user.id,
+    email: user.email,
+  });
 
-  if (!profile) {
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: user.id,
-      email: user.email,
-      plan: "free",
-    });
-
-    if (profileError) {
-      redirectWithError("プロフィールの作成に失敗しました。");
-    }
-  }
+  await checkCharacterCreateLimit({
+    supabase,
+    userId: user.id,
+    plan: profile.plan,
+  });
 
   const { data: artStyle, error: artStyleError } = await supabase
     .from("art_style_presets")
