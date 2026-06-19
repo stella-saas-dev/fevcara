@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
@@ -7,6 +8,9 @@ import { startSingleChat } from "./actions";
 type CharacterDetailPageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams: Promise<{
+    error?: string;
   }>;
 };
 
@@ -66,6 +70,20 @@ type CelebrationDayRow = {
   message_hint: string | null;
 };
 
+type ProfileForCharacterAccess = {
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function isFreePlan(plan: string | null) {
+  return normalizePlan(plan) === "free";
+}
+
 function getArtStyleName(artStylePresets: ArtStylePresetRelation) {
   if (Array.isArray(artStylePresets)) {
     return artStylePresets[0]?.name ?? "Art Style";
@@ -89,7 +107,7 @@ function DetailSection({
 }: {
   title: string;
   accent: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
@@ -118,8 +136,10 @@ function DetailItem({
 
 export default async function CharacterDetailPage({
   params,
+  searchParams,
 }: CharacterDetailPageProps) {
   const { id } = await params;
+  const query = await searchParams;
 
   const supabase = await createClient();
 
@@ -178,6 +198,29 @@ export default async function CharacterDetailPage({
 
   const character = characterData as CharacterDetailRow;
 
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("plan, active_character_id, character_limit_choice_locked")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const profile = (profileData ?? {
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  }) as ProfileForCharacterAccess;
+
+  const isWaitingCharacter =
+    isFreePlan(profile.plan) &&
+    Boolean(profile.character_limit_choice_locked) &&
+    Boolean(profile.active_character_id) &&
+    profile.active_character_id !== character.id;
+
+  const isActiveFreeCharacter =
+    isFreePlan(profile.plan) &&
+    Boolean(profile.character_limit_choice_locked) &&
+    profile.active_character_id === character.id;
+
   const { data: celebrationDaysData } = await supabase
     .from("celebration_days")
     .select("id, month, day, title, message_hint")
@@ -210,10 +253,24 @@ export default async function CharacterDetailPage({
             ← キャラクター一覧へ戻る
           </Link>
 
-          <div className="mt-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#111827] to-[#0B1020] p-5 shadow-2xl shadow-black/30">
+          <div
+            className={[
+              "mt-8 rounded-[2rem] border p-5 shadow-2xl shadow-black/30",
+              isWaitingCharacter
+                ? "border-white/10 bg-[#111827]/60 opacity-85"
+                : "border-white/10 bg-gradient-to-br from-[#111827] to-[#0B1020]",
+            ].join(" ")}
+          >
             <div className="flex items-start gap-4">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-3xl">
-                ◇
+              <div
+                className={[
+                  "flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border text-3xl font-black",
+                  isWaitingCharacter
+                    ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
+                    : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
+                ].join(" ")}
+              >
+                {characterName.slice(0, 1)}
               </div>
 
               <div className="min-w-0 flex-1">
@@ -225,9 +282,22 @@ export default async function CharacterDetailPage({
                 </h1>
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {isActiveFreeCharacter ? (
+                    <span className="rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-3 py-1 text-xs font-black text-[#D9F99D]">
+                      Freeで利用中
+                    </span>
+                  ) : null}
+
+                  {isWaitingCharacter ? (
+                    <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
+                      待機中
+                    </span>
+                  ) : null}
+
                   <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-[#A7B0C0]">
                     {character.status || "draft"}
                   </span>
+
                   <span className="rounded-full border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-3 py-1 text-xs text-[#BAE6FD]">
                     {artStyleName}
                   </span>
@@ -242,46 +312,77 @@ export default async function CharacterDetailPage({
           </div>
         </header>
 
-        <div className="mt-6 grid gap-5">
-         <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            disabled
-            className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-sm font-black text-[#D9F99D] opacity-70"
-          >
-            姿を生成する
-            <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-              準備中
-            </span>
-          </button>
+        {query.error ? (
+          <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+            {query.error}
+          </div>
+        ) : null}
 
-          <form action={startSingleChat}>
-            <input type="hidden" name="characterId" value={character.id} />
+        {isWaitingCharacter ? (
+          <div className="mt-6 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+            <p className="text-sm font-black text-[#FDE68A]">
+              このキャラクターは待機中です
+            </p>
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              現在のFreeプランでは、選択した1人のキャラクターだけに話しかけられます。
+              このキャラクターの設定は残っていますが、チャットはPremium Lite以上で再開できる設計にします。
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-6 grid gap-5">
+          <div className="grid grid-cols-2 gap-3">
             <button
-              type="submit"
-              className="h-full w-full rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-4 py-4 text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
+              type="button"
+              disabled
+              className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-sm font-black text-[#D9F99D] opacity-70"
             >
-              話しかける
+              姿を生成する
               <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                チャットを開く
+                準備中
               </span>
             </button>
-          </form>
-        </div>
 
-        <Link
-          href={`/app/characters/${character.id}/edit`}
-          className="mt-3 block rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-5 py-4 text-center text-sm font-black text-[#FDE68A] transition hover:bg-[#FACC15]/15"
-        >
-          設定を編集する
-        </Link>
+            {isWaitingCharacter ? (
+              <button
+                type="button"
+                disabled
+                className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm font-black text-[#7D8AA3] opacity-70"
+              >
+                話しかける
+                <span className="mt-1 block text-xs font-medium text-[#7D8AA3]">
+                  待機中
+                </span>
+              </button>
+            ) : (
+              <form action={startSingleChat}>
+                <input type="hidden" name="characterId" value={character.id} />
+                <button
+                  type="submit"
+                  className="h-full w-full rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-4 py-4 text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
+                >
+                  話しかける
+                  <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
+                    チャットを開く
+                  </span>
+                </button>
+              </form>
+            )}
+          </div>
 
-        <Link
-          href="/app/chats"
-          className="mt-3 block rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-black text-[#D8DEE9] transition hover:bg-white/[0.08]"
-        >
-          チャット一覧を見る
-        </Link>
+          <Link
+            href={`/app/characters/${character.id}/edit`}
+            className="block rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-5 py-4 text-center text-sm font-black text-[#FDE68A] transition hover:bg-[#FACC15]/15"
+          >
+            設定を編集する
+          </Link>
+
+          <Link
+            href="/app/chats"
+            className="block rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-black text-[#D8DEE9] transition hover:bg-white/[0.08]"
+          >
+            チャット一覧を見る
+          </Link>
 
           <DetailSection title="基本プロフィール" accent="text-[#7DD3FC]">
             <DetailItem label="仮名" value={character.temporary_name} />
@@ -292,11 +393,14 @@ export default async function CharacterDetailPage({
             <DetailItem label="目の色" value={character.eye_color} />
             <DetailItem label="髪型" value={character.hairstyle} />
             <DetailItem label="服装" value={character.outfit} />
-        　</DetailSection>
+          </DetailSection>
 
           <DetailSection title="表情" accent="text-[#BEF264]">
             <DetailItem label="基本表情" value={character.default_expression} />
-            <DetailItem label="表情のこだわり" value={character.expression_detail} />
+            <DetailItem
+              label="表情のこだわり"
+              value={character.expression_detail}
+            />
           </DetailSection>
 
           <DetailSection title="性格・話し方" accent="text-[#FACC15]">
@@ -319,7 +423,10 @@ export default async function CharacterDetailPage({
             <DetailItem label="専門分野" value={character.expertise} />
             <DetailItem label="得意な相談" value={character.consultation_style} />
             <DetailItem label="思考スタイル" value={character.thinking_style} />
-            <DetailItem label="チーム内での立ち位置" value={character.team_position} />
+            <DetailItem
+              label="チーム内での立ち位置"
+              value={character.team_position}
+            />
           </DetailSection>
 
           <DetailSection title="好きなもの・苦手なもの" accent="text-[#7DD3FC]">

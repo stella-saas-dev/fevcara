@@ -7,6 +7,26 @@ function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+function redirectWithError(characterId: string, message: string): never {
+  redirect(
+    `/app/characters/${characterId}?error=${encodeURIComponent(message)}`,
+  );
+}
+
+type ProfileForCharacterAccess = {
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function isFreePlan(plan: string | null) {
+  return normalizePlan(plan) === "free";
+}
+
 export async function startSingleChat(formData: FormData) {
   const characterId = getText(formData, "characterId");
 
@@ -33,6 +53,47 @@ export async function startSingleChat(formData: FormData) {
 
   if (characterError || !character) {
     redirect("/app/characters");
+  }
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("plan, active_character_id, character_limit_choice_locked")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const profile = (profileData ?? {
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  }) as ProfileForCharacterAccess;
+
+  if (isFreePlan(profile.plan)) {
+    const { count, error: countError } = await supabase
+      .from("characters")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if (countError) {
+      redirectWithError(character.id, "キャラクター数の確認に失敗しました。");
+    }
+
+    const characterCount = count ?? 0;
+
+    if (characterCount > 1 && !profile.character_limit_choice_locked) {
+      redirect("/app/characters/select-active");
+    }
+
+    const isWaitingCharacter =
+      Boolean(profile.character_limit_choice_locked) &&
+      Boolean(profile.active_character_id) &&
+      profile.active_character_id !== character.id;
+
+    if (isWaitingCharacter) {
+      redirectWithError(
+        character.id,
+        "このキャラクターは現在のFreeプランでは待機中です。Premium Lite以上で再開できます。",
+      );
+    }
   }
 
   const { data: existingThreads } = await supabase
