@@ -53,9 +53,17 @@ type ProfileForUsage = {
   created_at: string | null;
 };
 
+type ProfileForCharacterAccess = {
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
+};
+
 type ProfileQueryRow = {
   plan: string | null;
   created_at?: string | null;
+  active_character_id?: string | null;
+  character_limit_choice_locked?: boolean | null;
 };
 
 type ChatThreadSummary = {
@@ -81,6 +89,10 @@ function isPaidPlan(plan: string | null) {
     normalizedPlan.includes("pro") ||
     normalizedPlan.includes("paid")
   );
+}
+
+function isFreePlan(plan: string | null) {
+  return !isPaidPlan(plan);
 }
 
 function getJstDateParts(date: Date) {
@@ -254,7 +266,7 @@ export default async function ChatPage({
 
   const messages = (messagesData ?? []) as MessageRow[];
 
- let chatSummary: ChatThreadSummary | null = null;
+  let chatSummary: ChatThreadSummary | null = null;
 
   if (showMemoryDebug) {
     const { data: summaryData } = await supabase
@@ -277,18 +289,24 @@ export default async function ChatPage({
     chatSummary = (summaryData ?? null) as ChatThreadSummary | null;
   }
 
-const importantFacts = toStringList(chatSummary?.important_facts);
-const openQuestions = toStringList(chatSummary?.open_questions);
-const userPreferences = toStringList(chatSummary?.user_preferences);
+  const importantFacts = toStringList(chatSummary?.important_facts);
+  const openQuestions = toStringList(chatSummary?.open_questions);
+  const userPreferences = toStringList(chatSummary?.user_preferences);
 
   let profileForUsage: ProfileForUsage = {
     plan: "free",
     created_at: user.created_at ?? new Date().toISOString(),
   };
 
+  let profileForCharacterAccess: ProfileForCharacterAccess = {
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  };
+
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
-    .select("plan, created_at")
+    .select("plan, created_at, active_character_id, character_limit_choice_locked")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -298,6 +316,13 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
     profileForUsage = {
       plan: profile.plan ?? "free",
       created_at: profile.created_at ?? user.created_at ?? null,
+    };
+
+    profileForCharacterAccess = {
+      plan: profile.plan ?? "free",
+      active_character_id: profile.active_character_id ?? null,
+      character_limit_choice_locked:
+        profile.character_limit_choice_locked ?? false,
     };
   }
 
@@ -314,6 +339,12 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
       profileForUsage = {
         plan: fallbackProfile.plan ?? "free",
         created_at: user.created_at ?? null,
+      };
+
+      profileForCharacterAccess = {
+        plan: fallbackProfile.plan ?? "free",
+        active_character_id: null,
+        character_limit_choice_locked: false,
       };
     }
   }
@@ -337,19 +368,30 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
     remainingMessagesToday = Math.max(dailyMessageLimit - usedMessagesToday, 0);
   }
 
+  const isWaitingThreadCharacter =
+    isFreePlan(profileForCharacterAccess.plan) &&
+    Boolean(profileForCharacterAccess.character_limit_choice_locked) &&
+    Boolean(profileForCharacterAccess.active_character_id) &&
+    Boolean(thread.character_id) &&
+    profileForCharacterAccess.active_character_id !== thread.character_id;
+
   const hasNoFreeMessages =
     dailyMessageLimit !== null && remainingMessagesToday === 0;
+
   const isMessageInputDisabled =
-    isFreeDailyLimitReached || hasNoFreeMessages;
+    isFreeDailyLimitReached || hasNoFreeMessages || isWaitingThreadCharacter;
+
   const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
+
   const latestMessageKey =
     messages.length > 0 ? messages[messages.length - 1].id : "empty";
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
       <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
+
       <section className="mx-auto w-full max-w-md">
-       <header className="sticky top-3 z-30 rounded-[2rem] border border-white/10 bg-[#111827]/90 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <header className="sticky top-3 z-30 rounded-[2rem] border border-white/10 bg-[#111827]/90 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/app/chats"
@@ -369,7 +411,12 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
           <div className="mt-5 flex items-center gap-4">
             <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-2xl font-black text-[#F4F1EA] shadow-lg shadow-[#7DD3FC]/10">
               {getAvatarText(characterName)}
-              <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020] bg-[#BEF264]" />
+              <span
+                className={[
+                  "absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020]",
+                  isWaitingThreadCharacter ? "bg-[#FACC15]" : "bg-[#BEF264]",
+                ].join(" ")}
+              />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -377,114 +424,122 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
                 SINGLE CHAT
               </p>
 
-              <h1 className="mt-2 break-words text-2xl font-black leading-tight">
-                {characterName}
-              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h1 className="break-words text-2xl font-black leading-tight">
+                  {characterName}
+                </h1>
+
+                {isWaitingThreadCharacter ? (
+                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    待機中
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
         </header>
 
-      {showMemoryDebug ? (
-        <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 shadow-lg shadow-[#7DD3FC]/5">
-          <summary className="cursor-pointer select-none text-sm font-black text-[#BAE6FD]">
-            この子が覚えていること（開発用）
-          </summary>
+        {showMemoryDebug ? (
+          <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 shadow-lg shadow-[#7DD3FC]/5">
+            <summary className="cursor-pointer select-none text-sm font-black text-[#BAE6FD]">
+              この子が覚えていること（開発用）
+            </summary>
 
-          <div className="mt-4 space-y-4 border-t border-[#7DD3FC]/15 pt-4">
-            {chatSummary ? (
-              <>
-                <div>
-                  <p className="text-xs font-black tracking-[0.18em] text-[#7DD3FC]">
-                    SUMMARY
+            <div className="mt-4 space-y-4 border-t border-[#7DD3FC]/15 pt-4">
+              {chatSummary ? (
+                <>
+                  <div>
+                    <p className="text-xs font-black tracking-[0.18em] text-[#7DD3FC]">
+                      SUMMARY
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#F4F1EA]">
+                      {chatSummary.summary_text?.trim() ||
+                        "要約本文はまだ空です。"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black tracking-[0.18em] text-[#D9F99D]">
+                      IMPORTANT FACTS
+                    </p>
+                    {importantFacts.length > 0 ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                        {importantFacts.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black tracking-[0.18em] text-[#FDE68A]">
+                      OPEN QUESTIONS
+                    </p>
+                    {openQuestions.length > 0 ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                        {openQuestions.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black tracking-[0.18em] text-[#F9A8D4]">
+                      USER PREFERENCES
+                    </p>
+                    {userPreferences.length > 0 ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                        {userPreferences.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-3">
+                    <p className="text-xs leading-6 text-[#A7B0C0]">
+                      要約済みメッセージ数：
+                      <span className="font-black text-[#F4F1EA]">
+                        {chatSummary.summarized_message_count ?? 0}
+                      </span>
+                    </p>
+                    <p className="text-xs leading-6 text-[#A7B0C0]">
+                      要約対象の最終日時：
+                      <span className="font-semibold text-[#F4F1EA]">
+                        {formatMemoryDateTime(
+                          chatSummary.summarized_until_created_at,
+                        )}
+                      </span>
+                    </p>
+                    <p className="text-xs leading-6 text-[#A7B0C0]">
+                      メモ更新日時：
+                      <span className="font-semibold text-[#F4F1EA]">
+                        {formatMemoryDateTime(chatSummary.updated_at)}
+                      </span>
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-4">
+                  <p className="text-sm font-bold text-[#F4F1EA]">
+                    まだ長期メモはありません。
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#F4F1EA]">
-                    {chatSummary.summary_text?.trim() ||
-                      "要約本文はまだ空です。"}
+                  <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
+                    会話が一定数たまると、古い会話が要約されて
+                    chat_thread_summaries に保存されます。
                   </p>
                 </div>
-
-                <div>
-                  <p className="text-xs font-black tracking-[0.18em] text-[#D9F99D]">
-                    IMPORTANT FACTS
-                  </p>
-                  {importantFacts.length > 0 ? (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
-                      {importantFacts.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-xs font-black tracking-[0.18em] text-[#FDE68A]">
-                    OPEN QUESTIONS
-                  </p>
-                  {openQuestions.length > 0 ? (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
-                      {openQuestions.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-xs font-black tracking-[0.18em] text-[#F9A8D4]">
-                    USER PREFERENCES
-                  </p>
-                  {userPreferences.length > 0 ? (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
-                      {userPreferences.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-3">
-                  <p className="text-xs leading-6 text-[#A7B0C0]">
-                    要約済みメッセージ数：
-                    <span className="font-black text-[#F4F1EA]">
-                      {chatSummary.summarized_message_count ?? 0}
-                    </span>
-                  </p>
-                  <p className="text-xs leading-6 text-[#A7B0C0]">
-                    要約対象の最終日時：
-                    <span className="font-semibold text-[#F4F1EA]">
-                      {formatMemoryDateTime(
-                        chatSummary.summarized_until_created_at,
-                      )}
-                    </span>
-                  </p>
-                  <p className="text-xs leading-6 text-[#A7B0C0]">
-                    メモ更新日時：
-                    <span className="font-semibold text-[#F4F1EA]">
-                      {formatMemoryDateTime(chatSummary.updated_at)}
-                    </span>
-                  </p>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-4">
-                <p className="text-sm font-bold text-[#F4F1EA]">
-                  まだ長期メモはありません。
-                </p>
-                <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
-                  会話が一定数たまると、古い会話が要約されて
-                  chat_thread_summaries に保存されます。
-                </p>
-              </div>
-            )}
-          </div>
-        </details>
-      ) : null}
+              )}
+            </div>
+          </details>
+        ) : null}
 
         {query.error ? (
           <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
@@ -503,6 +558,21 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
             <p className="mt-3 text-xs leading-5 text-[#A7B0C0]">
               Freeプランでは、通常1日10メッセージまで話せます。
               初回登録日は30メッセージまで体験できます。
+            </p>
+          </div>
+        ) : null}
+
+        {isWaitingThreadCharacter ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
+            <p className="font-black text-[#FDE68A]">
+              このキャラクターは現在待機中です。
+            </p>
+            <p className="mt-2 text-[#F4F1EA]">
+              Freeプランでは、選択した1人のキャラクターだけとチャットできます。
+            </p>
+            <p className="mt-3 text-xs leading-5 text-[#A7B0C0]">
+              このキャラクターの設定や会話履歴は削除されません。
+              Premium Lite以上で再開できる設計にします。
             </p>
           </div>
         ) : null}
@@ -586,9 +656,11 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
             <textarea
               name="content"
               placeholder={
-                isMessageInputDisabled
-                  ? "本日のFreeメッセージ上限に達しました"
-                  : `${characterName}に話しかける`
+                isWaitingThreadCharacter
+                  ? "このキャラクターは現在待機中です"
+                  : isMessageInputDisabled
+                    ? "本日のFreeメッセージ上限に達しました"
+                    : `${characterName}に話しかける`
               }
               rows={3}
               required
@@ -599,7 +671,11 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
 
           <div className="mt-3 flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              {dailyMessageLimit !== null ? (
+              {isWaitingThreadCharacter ? (
+                <p className="truncate text-[11px] text-[#FACC15]">
+                  Freeプランでは待機中
+                </p>
+              ) : dailyMessageLimit !== null ? (
                 <p className="truncate text-[11px] text-[#A7B0C0]">
                   今日あと {remainingMessagesToday ?? 0} 通
                 </p>
@@ -615,7 +691,11 @@ const userPreferences = toStringList(chatSummary?.user_preferences);
               disabled={isMessageInputDisabled}
               className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
             >
-              {isMessageInputDisabled ? "今日はここまで" : "送信"}
+              {isWaitingThreadCharacter
+                ? "待機中"
+                : isMessageInputDisabled
+                  ? "今日はここまで"
+                  : "送信"}
             </button>
           </div>
         </div>
