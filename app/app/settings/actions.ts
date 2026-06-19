@@ -14,11 +14,19 @@ function isDevPlan(value: string): value is DevPlan {
   return value === "free" || value === "premium_lite" || value === "premium";
 }
 
+function isDevPlanSwitchEnabled() {
+  return process.env.FEVCARA_ENABLE_DEV_PLAN_SWITCH === "true";
+}
+
 function redirectWithError(message: string): never {
   redirect(`/app/settings?error=${encodeURIComponent(message)}`);
 }
 
 export async function updateDevPlan(formData: FormData) {
+  if (!isDevPlanSwitchEnabled()) {
+    redirectWithError("開発用プラン切り替えは現在無効です。");
+  }
+
   const plan = getText(formData, "plan");
 
   if (!isDevPlan(plan)) {

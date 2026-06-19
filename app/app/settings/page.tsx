@@ -78,6 +78,8 @@ export default async function SettingsPage({
 }: SettingsPageProps) {
   const params = await searchParams;
   const supabase = await createClient();
+  const enableDevPlanSwitch =
+    process.env.FEVCARA_ENABLE_DEV_PLAN_SWITCH === "true";
 
   const {
     data: { user },
@@ -129,7 +131,7 @@ export default async function SettingsPage({
           </div>
         ) : null}
 
-        {updatedPlanLabel ? (
+        {updatedPlanLabel && enableDevPlanSwitch ? (
           <div className="mt-6 rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 p-4 text-sm leading-6 text-[#D9F99D]">
             プランを{updatedPlanLabel}に変更しました。キャラクター選択ロックも解除されました。
           </div>
@@ -180,60 +182,81 @@ export default async function SettingsPage({
             )}
           </section>
 
-          <section className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
-            <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
-              DEV PLAN SWITCH
-            </p>
-            <h2 className="mt-2 text-xl font-black">開発用プラン切り替え</h2>
-            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-              Stripe連携前の開発確認用です。プラン変更時に
-              active_character_id と character_limit_choice_locked を解除します。
-            </p>
+          {enableDevPlanSwitch ? (
+            <section className="rounded-[2rem] border border-[#FACC15]/20 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
+              <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
+                DEV PLAN SWITCH
+              </p>
+              <h2 className="mt-2 text-xl font-black">
+                開発用プラン切り替え
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                Stripe連携前の開発確認用です。プラン変更時に
+                active_character_id と character_limit_choice_locked を解除します。
+              </p>
 
-            <form action={updateDevPlan} className="mt-5 grid gap-3">
-              <button
-                type="submit"
-                name="plan"
-                value="free"
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-left transition hover:border-[#FACC15]/35 hover:bg-white/[0.07]"
-              >
-                <span className="block text-sm font-black text-[#F4F1EA]">
-                  Freeにする
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                  キャラ1人まで。2人以上いる場合は、キャラ一覧で使うキャラ選択が必要になります。
-                </span>
-              </button>
+              <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
+                <p className="text-xs font-bold leading-6 text-[#FDE68A]">
+                  このUIは FEVCARA_ENABLE_DEV_PLAN_SWITCH=true の時だけ表示されます。
+                  本番では環境変数を未設定または false にしてください。
+                </p>
+              </div>
 
-              <button
-                type="submit"
-                name="plan"
-                value="premium_lite"
-                className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-5 py-4 text-left transition hover:bg-[#BEF264]/15"
-              >
-                <span className="block text-sm font-black text-[#D9F99D]">
-                  Premium Liteにする
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
-                  キャラ3人まで。Freeのキャラ固定ロックを解除します。
-                </span>
-              </button>
+              <form action={updateDevPlan} className="mt-5 grid gap-3">
+                <button
+                  type="submit"
+                  name="plan"
+                  value="free"
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-left transition hover:border-[#FACC15]/35 hover:bg-white/[0.07]"
+                >
+                  <span className="block text-sm font-black text-[#F4F1EA]">
+                    Freeにする
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
+                    キャラ1人まで。2人以上いる場合は、キャラ一覧で使うキャラ選択が必要になります。
+                  </span>
+                </button>
 
-              <button
-                type="submit"
-                name="plan"
-                value="premium"
-                className="rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-5 py-4 text-left transition hover:bg-[#7DD3FC]/15"
-              >
-                <span className="block text-sm font-black text-[#BAE6FD]">
-                  Premiumにする
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
-                  キャラ10人まで。複数キャラ利用を想定した上位プランです。
-                </span>
-              </button>
-            </form>
-          </section>
+                <button
+                  type="submit"
+                  name="plan"
+                  value="premium_lite"
+                  className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-5 py-4 text-left transition hover:bg-[#BEF264]/15"
+                >
+                  <span className="block text-sm font-black text-[#D9F99D]">
+                    Premium Liteにする
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
+                    キャラ3人まで。Freeのキャラ固定ロックを解除します。
+                  </span>
+                </button>
+
+                <button
+                  type="submit"
+                  name="plan"
+                  value="premium"
+                  className="rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-5 py-4 text-left transition hover:bg-[#7DD3FC]/15"
+                >
+                  <span className="block text-sm font-black text-[#BAE6FD]">
+                    Premiumにする
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
+                    キャラ10人まで。複数キャラ利用を想定した上位プランです。
+                  </span>
+                </button>
+              </form>
+            </section>
+          ) : (
+            <section className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
+              <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
+                PLAN
+              </p>
+              <h2 className="mt-2 text-xl font-black">プラン管理</h2>
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                プラン変更・支払い管理は、Stripe連携後にここから操作できるようにします。
+              </p>
+            </section>
+          )}
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
             <p className="text-sm font-semibold">アカウント</p>
