@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import { startSingleChat } from "./actions";
 
 type CharacterDetailPageProps = {
   params: Promise<{
@@ -242,29 +243,31 @@ export default async function CharacterDetailPage({
         </header>
 
         <div className="mt-6 grid gap-5">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled
-              className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-sm font-black text-[#D9F99D] opacity-70"
-            >
-              姿を生成する
-              <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                準備中
-              </span>
-            </button>
+         <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled
+            className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-sm font-black text-[#D9F99D] opacity-70"
+          >
+            姿を生成する
+            <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
+              準備中
+            </span>
+          </button>
 
+          <form action={startSingleChat}>
+            <input type="hidden" name="characterId" value={character.id} />
             <button
-              type="button"
-              disabled
-              className="rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-4 py-4 text-sm font-black text-[#BAE6FD] opacity-70"
+              type="submit"
+              className="h-full w-full rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-4 py-4 text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
             >
               話しかける
               <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                準備中
+                チャットを開く
               </span>
             </button>
-          </div>
+          </form>
+        </div>
 
           <DetailSection title="基本プロフィール" accent="text-[#7DD3FC]">
             <DetailItem label="仮名" value={character.temporary_name} />
