@@ -131,3 +131,148 @@ export async function startSingleChat(formData: FormData) {
 
   redirect(`/app/chat/${thread.id}`);
 }
+
+export async function deleteCharacter(formData: FormData) {
+  const characterId = getText(formData, "characterId");
+  const confirmDelete = getText(formData, "confirmDelete");
+
+  if (!characterId) {
+    redirect("/app/characters");
+  }
+
+  if (confirmDelete !== "yes") {
+    redirectWithError(
+      characterId,
+      "削除する場合は確認チェックを入れてください。",
+    );
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: character, error: characterError } = await supabase
+    .from("characters")
+    .select("id, temporary_name, final_name")
+    .eq("id", characterId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (characterError || !character) {
+    redirect("/app/characters");
+  }
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("active_character_id, character_limit_choice_locked")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const profile = (profileData ?? {
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  }) as Pick<
+    ProfileForCharacterAccess,
+    "active_character_id" | "character_limit_choice_locked"
+  >;
+
+  const { data: singleThreadsData, error: singleThreadsError } = await supabase
+    .from("chat_threads")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("chat_type", "single")
+    .eq("character_id", character.id);
+
+  if (singleThreadsError) {
+    redirectWithError(character.id, "関連チャットの確認に失敗しました。");
+  }
+
+  const singleThreadIds = (singleThreadsData ?? [])
+    .map((thread) => String(thread.id ?? "").trim())
+    .filter((threadId) => threadId.length > 0);
+
+  if (singleThreadIds.length > 0) {
+    const { error: summaryDeleteError } = await supabase
+      .from("chat_thread_summaries")
+      .delete()
+      .eq("user_id", user.id)
+      .in("thread_id", singleThreadIds);
+
+    if (summaryDeleteError) {
+      redirectWithError(character.id, "関連する長期メモの削除に失敗しました。");
+    }
+
+    const { error: messagesDeleteError } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("user_id", user.id)
+      .in("thread_id", singleThreadIds);
+
+    if (messagesDeleteError) {
+      redirectWithError(character.id, "関連チャットメッセージの削除に失敗しました。");
+    }
+
+    const { error: threadsDeleteError } = await supabase
+      .from("chat_threads")
+      .delete()
+      .eq("user_id", user.id)
+      .in("id", singleThreadIds);
+
+    if (threadsDeleteError) {
+      redirectWithError(character.id, "関連チャットの削除に失敗しました。");
+    }
+  }
+
+  const { error: celebrationDaysDeleteError } = await supabase
+    .from("celebration_days")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("character_id", character.id);
+
+  if (celebrationDaysDeleteError) {
+    redirectWithError(character.id, "大切な日の削除に失敗しました。");
+  }
+
+  await supabase
+    .from("character_relationships")
+    .delete()
+    .eq("user_id", user.id)
+    .or(`character_a_id.eq.${character.id},character_b_id.eq.${character.id}`);
+
+  const { error: characterDeleteError } = await supabase
+    .from("characters")
+    .delete()
+    .eq("id", character.id)
+    .eq("user_id", user.id);
+
+  if (characterDeleteError) {
+    redirectWithError(character.id, "キャラクターの削除に失敗しました。");
+  }
+
+  const { count: remainingCharacterCount } = await supabase
+    .from("characters")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  const shouldResetActiveCharacter =
+    profile.active_character_id === character.id ||
+    (remainingCharacterCount ?? 0) <= 1;
+
+  if (shouldResetActiveCharacter) {
+    await supabase
+      .from("profiles")
+      .update({
+        active_character_id: null,
+        character_limit_choice_locked: false,
+      })
+      .eq("id", user.id);
+  }
+
+  redirect("/app/characters?deleted=1");
+}
