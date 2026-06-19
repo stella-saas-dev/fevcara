@@ -318,3 +318,101 @@ add column if not exists expertise text,
 add column if not exists consultation_style text,
 add column if not exists thinking_style text,
 add column if not exists team_position text;
+
+
+create table if not exists public.character_relationships (
+  id uuid primary key default gen_random_uuid(),
+
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  from_character_id uuid not null references public.characters(id) on delete cascade,
+  to_character_id uuid not null references public.characters(id) on delete cascade,
+
+  relationship_label text,
+  impression text,
+  speaking_style text,
+  group_chat_behavior text,
+  forbidden_behavior text,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint character_relationships_no_self
+    check (from_character_id <> to_character_id),
+
+  constraint character_relationships_unique_pair
+    unique (user_id, from_character_id, to_character_id)
+);
+
+drop trigger if exists set_character_relationships_updated_at
+on public.character_relationships;
+
+create trigger set_character_relationships_updated_at
+before update on public.character_relationships
+for each row execute function public.set_updated_at();
+
+alter table public.character_relationships enable row level security;
+
+drop policy if exists "Users can view own character relationships"
+on public.character_relationships;
+
+create policy "Users can view own character relationships"
+on public.character_relationships
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert own character relationships"
+on public.character_relationships;
+
+create policy "Users can insert own character relationships"
+on public.character_relationships
+for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.characters c
+    where c.id = from_character_id
+      and c.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.characters c
+    where c.id = to_character_id
+      and c.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can update own character relationships"
+on public.character_relationships;
+
+create policy "Users can update own character relationships"
+on public.character_relationships
+for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.characters c
+    where c.id = from_character_id
+      and c.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.characters c
+    where c.id = to_character_id
+      and c.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can delete own character relationships"
+on public.character_relationships;
+
+create policy "Users can delete own character relationships"
+on public.character_relationships
+for delete
+to authenticated
+using ((select auth.uid()) = user_id);

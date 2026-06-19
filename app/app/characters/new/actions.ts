@@ -68,9 +68,6 @@ export async function createCharacter(formData: FormData) {
     redirectWithError("絵柄プリセットの取得に失敗しました。");
   }
 
-  const absoluteSettings = getText(formData, "absoluteSettings");
-  const appearanceDetail = getText(formData, "appearanceDetail");
-
   const { data: character, error: characterError } = await supabase
     .from("characters")
     .insert({
@@ -84,7 +81,7 @@ export async function createCharacter(formData: FormData) {
       eye_color: getText(formData, "eyeColor") || null,
       hairstyle: getText(formData, "hairstyle") || null,
       outfit: getText(formData, "outfit") || null,
-      appearance_detail: appearanceDetail || null,
+      appearance_detail: getText(formData, "appearanceDetail") || null,
 
       default_expression: getText(formData, "defaultExpression") || null,
       expression_detail: getText(formData, "expressionDetail") || null,
@@ -94,7 +91,13 @@ export async function createCharacter(formData: FormData) {
       user_nickname: getText(formData, "userNickname") || null,
       speech_style: getText(formData, "speechStyle") || null,
       forbidden_speech: getText(formData, "forbiddenSpeech") || null,
-      absolute_settings: absoluteSettings || null,
+      absolute_settings: getText(formData, "absoluteSettings") || null,
+
+      role_name: getText(formData, "roleName") || null,
+      expertise: getText(formData, "expertise") || null,
+      consultation_style: getText(formData, "consultationStyle") || null,
+      thinking_style: getText(formData, "thinkingStyle") || null,
+      team_position: getText(formData, "teamPosition") || null,
 
       likes: getText(formData, "likes") || null,
       dislikes: getText(formData, "dislikes") || null,

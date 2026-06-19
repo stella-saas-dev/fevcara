@@ -43,6 +43,12 @@ type CharacterDetailRow = {
   forbidden_speech: string | null;
   absolute_settings: string | null;
 
+  role_name: string | null;
+  expertise: string | null;
+  consultation_style: string | null;
+  thinking_style: string | null;
+  team_position: string | null;
+
   likes: string | null;
   dislikes: string | null;
 
@@ -146,6 +152,11 @@ export default async function CharacterDetailPage({
       speech_style,
       forbidden_speech,
       absolute_settings,
+      role_name,
+      expertise,
+      consultation_style,
+      thinking_style,
+      team_position,
       likes,
       dislikes,
       status,
@@ -284,6 +295,14 @@ export default async function CharacterDetailPage({
               label="絶対に守ってほしい設定"
               value={character.absolute_settings}
             />
+          </DetailSection>
+
+          <DetailSection title="役割・専門性" accent="text-[#7DD3FC]">
+            <DetailItem label="役割名" value={character.role_name} />
+            <DetailItem label="専門分野" value={character.expertise} />
+            <DetailItem label="得意な相談" value={character.consultation_style} />
+            <DetailItem label="思考スタイル" value={character.thinking_style} />
+            <DetailItem label="チーム内での立ち位置" value={character.team_position} />
           </DetailSection>
 
           <DetailSection title="好きなもの・苦手なもの" accent="text-[#7DD3FC]">

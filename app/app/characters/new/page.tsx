@@ -268,8 +268,84 @@ export default async function NewCharacterPage({
           </section>
 
           <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
+            <p className="text-sm font-semibold text-[#7DD3FC]">
+              STEP 3 / 役割・専門性
+            </p>
+
+            <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
+              このキャラクターが、AIチームの中でどんな役割を持つかを設定します。
+              ただの会話相手ではなく、あなたを支える専門家としての個性になります。
+            </p>
+
+            <div className="mt-5 space-y-4">
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  役割名
+                </span>
+                <input
+                  name="roleName"
+                  type="text"
+                  placeholder="例：戦略担当 / アイデア担当 / メンタル担当"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                />
+                <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
+                  グループチャットでの立ち位置になります。
+                </p>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  専門分野
+                </span>
+                <textarea
+                  name="expertise"
+                  placeholder="例：SaaS、ビジネス、マーケティング、分析"
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  得意な相談
+                </span>
+                <textarea
+                  name="consultationStyle"
+                  placeholder="例：事業設計、収益モデル、優先順位整理、現実的な改善案"
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  思考スタイル
+                </span>
+                <textarea
+                  name="thinkingStyle"
+                  placeholder="例：冷静、論理的、リスク重視。結論から話し、根拠を添える。"
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-[#D8DEE9]">
+                  チーム内での立ち位置
+                </span>
+                <textarea
+                  name="teamPosition"
+                  placeholder="例：現実性と実行可能性を見るまとめ役。楽観的な案に対して冷静に検証する。"
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
             <p className="text-sm font-semibold text-[#FACC15]">
-              STEP 3 / 好きなもの・大切な日
+              STEP 4 / 好きなもの・大切な日
             </p>
 
             <div className="mt-5 space-y-4">
@@ -353,7 +429,7 @@ export default async function NewCharacterPage({
 
           <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
             <p className="text-sm font-semibold text-[#7DD3FC]">
-              STEP 4 / 絵柄プリセット
+              STEP 5 / 絵柄プリセット
             </p>
             <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
               FevCaraでは、実在人物・既存キャラクター・写真風の生成を防ぐため、
