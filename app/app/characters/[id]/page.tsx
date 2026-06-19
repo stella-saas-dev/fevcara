@@ -269,6 +269,13 @@ export default async function CharacterDetailPage({
           </form>
         </div>
 
+        <Link
+          href={`/app/characters/${character.id}/edit`}
+          className="mt-3 block rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-5 py-4 text-center text-sm font-black text-[#FDE68A] transition hover:bg-[#FACC15]/15"
+        >
+          設定を編集する
+        </Link>
+
           <DetailSection title="基本プロフィール" accent="text-[#7DD3FC]">
             <DetailItem label="仮名" value={character.temporary_name} />
             <DetailItem label="正式名" value={character.final_name} />
