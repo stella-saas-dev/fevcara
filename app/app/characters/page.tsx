@@ -94,6 +94,15 @@ export default async function CharactersPage({
           </div>
         ) : null}
 
+        {characters.length >= 2 ? (
+          <Link
+            href="/app/relationships"
+            className="mt-4 block rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-5 py-4 text-center text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
+          >
+            キャラ同士の関係性を決める
+          </Link>
+        ) : null}
+
         <div className="mt-8">
           {characters.length > 0 ? (
             <div className="grid gap-4">
