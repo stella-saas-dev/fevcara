@@ -57,6 +57,16 @@ type ProfileQueryRow = {
   created_at?: string | null;
 };
 
+type ChatThreadSummary = {
+  summary_text: string | null;
+  important_facts: unknown;
+  open_questions: unknown;
+  user_preferences: unknown;
+  summarized_message_count: number | null;
+  summarized_until_created_at: string | null;
+  updated_at: string | null;
+};
+
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
 }
@@ -153,8 +163,32 @@ function getAvatarText(name: string) {
   return trimmedName.slice(0, 1);
 }
 
+function toStringList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter((item) => item.length > 0);
+}
+
 function formatMessageTime(createdAt: string) {
   return new Date(createdAt).toLocaleString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatMemoryDateTime(value: string | null) {
+  if (!value) {
+    return "未作成";
+  }
+
+  return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
@@ -217,6 +251,28 @@ export default async function ChatPage({
     .order("created_at", { ascending: true });
 
   const messages = (messagesData ?? []) as MessageRow[];
+
+  const { data: summaryData } = await supabase
+    .from("chat_thread_summaries")
+    .select(
+      `
+      summary_text,
+      important_facts,
+      open_questions,
+      user_preferences,
+      summarized_message_count,
+      summarized_until_created_at,
+      updated_at
+    `,
+    )
+    .eq("thread_id", thread.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const chatSummary = (summaryData ?? null) as ChatThreadSummary | null;
+  const importantFacts = toStringList(chatSummary?.important_facts);
+  const openQuestions = toStringList(chatSummary?.open_questions);
+  const userPreferences = toStringList(chatSummary?.user_preferences);
 
   let profileForUsage: ProfileForUsage = {
     plan: "free",
@@ -317,6 +373,106 @@ export default async function ChatPage({
             </div>
           </div>
         </header>
+
+        <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 shadow-lg shadow-[#7DD3FC]/5">
+          <summary className="cursor-pointer select-none text-sm font-black text-[#BAE6FD]">
+            この子が覚えていること（開発用）
+          </summary>
+
+          <div className="mt-4 space-y-4 border-t border-[#7DD3FC]/15 pt-4">
+            {chatSummary ? (
+              <>
+                <div>
+                  <p className="text-xs font-black tracking-[0.18em] text-[#7DD3FC]">
+                    SUMMARY
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#F4F1EA]">
+                    {chatSummary.summary_text?.trim() ||
+                      "要約本文はまだ空です。"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black tracking-[0.18em] text-[#D9F99D]">
+                    IMPORTANT FACTS
+                  </p>
+                  {importantFacts.length > 0 ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                      {importantFacts.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-black tracking-[0.18em] text-[#FDE68A]">
+                    OPEN QUESTIONS
+                  </p>
+                  {openQuestions.length > 0 ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                      {openQuestions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-black tracking-[0.18em] text-[#F9A8D4]">
+                    USER PREFERENCES
+                  </p>
+                  {userPreferences.length > 0 ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-6 text-[#D8DEE9]">
+                      {userPreferences.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-[#A7B0C0]">なし</p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-3">
+                  <p className="text-xs leading-6 text-[#A7B0C0]">
+                    要約済みメッセージ数：
+                    <span className="font-black text-[#F4F1EA]">
+                      {chatSummary.summarized_message_count ?? 0}
+                    </span>
+                  </p>
+                  <p className="text-xs leading-6 text-[#A7B0C0]">
+                    要約対象の最終日時：
+                    <span className="font-semibold text-[#F4F1EA]">
+                      {formatMemoryDateTime(
+                        chatSummary.summarized_until_created_at,
+                      )}
+                    </span>
+                  </p>
+                  <p className="text-xs leading-6 text-[#A7B0C0]">
+                    メモ更新日時：
+                    <span className="font-semibold text-[#F4F1EA]">
+                      {formatMemoryDateTime(chatSummary.updated_at)}
+                    </span>
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-[#0B1020]/45 p-4">
+                <p className="text-sm font-bold text-[#F4F1EA]">
+                  まだ長期メモはありません。
+                </p>
+                <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
+                  会話が一定数たまると、古い会話が要約されて
+                  chat_thread_summaries に保存されます。
+                </p>
+              </div>
+            )}
+          </div>
+        </details>
 
         {query.error ? (
           <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
