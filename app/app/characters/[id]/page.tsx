@@ -276,6 +276,13 @@ export default async function CharacterDetailPage({
           設定を編集する
         </Link>
 
+        <Link
+          href="/app/chats"
+          className="mt-3 block rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-black text-[#D8DEE9] transition hover:bg-white/[0.08]"
+        >
+          チャット一覧を見る
+        </Link>
+
           <DetailSection title="基本プロフィール" accent="text-[#7DD3FC]">
             <DetailItem label="仮名" value={character.temporary_name} />
             <DetailItem label="正式名" value={character.final_name} />

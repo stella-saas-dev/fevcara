@@ -60,6 +60,31 @@ export default async function AppHomePage() {
         </div>
 
         <div className="mt-5 grid gap-3">
+          <Link
+            href="/app/chats"
+            className="block rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/15"
+          >
+            <p className="text-sm font-black text-[#BAE6FD]">
+              チャット一覧を開く
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
+              最近話したキャラクターとの会話に戻れます。
+              前の相談や物語の続きを開きましょう。
+            </p>
+          </Link>
+
+          <Link
+            href="/app/characters"
+            className="block rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4 transition hover:scale-[1.01] hover:bg-[#BEF264]/15"
+          >
+            <p className="text-sm font-black text-[#D9F99D]">
+              キャラクター一覧を見る
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
+              作成済みキャラクターの確認、チャット開始、設定編集ができます。
+            </p>
+          </Link>
+
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
             <p className="text-sm font-semibold text-[#F4F1EA]">
               画像生成はオリジナルキャラ専用
