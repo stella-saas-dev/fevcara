@@ -3,21 +3,40 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  match: (pathname: string) => boolean;
+};
+
+const navItems: NavItem[] = [
   {
     href: "/app",
-    label: "Home",
+    label: "ホーム",
     icon: "✦",
+    match: (pathname) => pathname === "/app",
   },
   {
     href: "/app/characters",
-    label: "Characters",
-    icon: "◇",
+    label: "キャラ",
+    icon: "☻",
+    match: (pathname) =>
+      pathname.startsWith("/app/characters") ||
+      pathname.startsWith("/app/relationships"),
+  },
+  {
+    href: "/app/chats",
+    label: "チャット",
+    icon: "💬",
+    match: (pathname) =>
+      pathname.startsWith("/app/chats") || pathname.startsWith("/app/chat"),
   },
   {
     href: "/app/settings",
-    label: "Settings",
+    label: "設定",
     icon: "⚙",
+    match: (pathname) => pathname.startsWith("/app/settings"),
   },
 ];
 
@@ -25,26 +44,24 @@ export function AppBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#080D19]/90 px-4 pb-4 pt-2 text-[#A7B0C0] backdrop-blur-xl">
-      <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-slate-950/90 px-3 py-2 backdrop-blur-xl">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {navItems.map((item) => {
-          const isActive =
-            item.href === "/app"
-              ? pathname === "/app"
-              : pathname.startsWith(item.href);
+          const isActive = item.match(pathname);
 
           return (
             <Link
               key={item.href}
               href={item.href}
               className={[
-                "flex flex-col items-center justify-center rounded-2xl px-3 py-2 text-xs transition",
+                "flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-medium transition",
                 isActive
-                  ? "bg-gradient-to-r from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]"
-                  : "hover:bg-white/[0.06] hover:text-[#F4F1EA]",
+                  ? "bg-lime-300/15 text-lime-200 shadow-[0_0_18px_rgba(190,242,100,0.18)]"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-100",
               ].join(" ")}
+              aria-current={isActive ? "page" : undefined}
             >
-              <span className="text-lg">{item.icon}</span>
+              <span className="text-base leading-none">{item.icon}</span>
               <span className="mt-1">{item.label}</span>
             </Link>
           );
