@@ -143,6 +143,16 @@ function getCharacterName(
   );
 }
 
+function getAvatarText(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return "◇";
+  }
+
+  return trimmedName.slice(0, 1);
+}
+
 function formatMessageTime(createdAt: string) {
   return new Date(createdAt).toLocaleString("ja-JP", {
     month: "numeric",
@@ -264,86 +274,58 @@ export default async function ChatPage({
     remainingMessagesToday = Math.max(dailyMessageLimit - usedMessagesToday, 0);
   }
 
+  const hasNoFreeMessages =
+    dailyMessageLimit !== null && remainingMessagesToday === 0;
+  const isMessageInputDisabled =
+    isFreeDailyLimitReached || hasNoFreeMessages;
+  const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
+
   return (
-    <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
-      <section className="mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-md flex-col">
-        <header>
-          <Link
-            href="/app/characters"
-            className="text-sm text-[#A7B0C0] hover:text-[#F4F1EA]"
-          >
-            ← キャラクター一覧へ戻る
-          </Link>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
+      <section className="mx-auto w-full max-w-md">
+        <header className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/app/chats"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#7DD3FC]/40 hover:text-[#F4F1EA]"
+            >
+              ← チャット一覧
+            </Link>
 
-          <div className="mt-6 rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
-            <p className="text-xs font-semibold tracking-[0.24em] text-[#7DD3FC]">
-              SINGLE CHAT
-            </p>
+            <Link
+              href="/app/characters"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#BEF264]/40 hover:text-[#F4F1EA]"
+            >
+              キャラ一覧
+            </Link>
+          </div>
 
-            <div className="mt-3 flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-2xl">
-                ◇
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <h1 className="break-words text-2xl font-black">
-                  {characterName}
-                </h1>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {character?.role_name ? (
-                    <span className="rounded-full border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-1 text-xs text-[#D9F99D]">
-                      {character.role_name}
-                    </span>
-                  ) : null}
-
-                  {character?.default_expression ? (
-                    <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-[#A7B0C0]">
-                      {character.default_expression}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
+          <div className="mt-5 flex items-center gap-4">
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-2xl font-black text-[#F4F1EA] shadow-lg shadow-[#7DD3FC]/10">
+              {getAvatarText(characterName)}
+              <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020] bg-[#BEF264]" />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-              <p className="text-xs leading-6 text-[#A7B0C0]">
-                キャラクター設定・役割・専門性をもとに、AI返信を生成します。
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-black tracking-[0.24em] text-[#7DD3FC]">
+                SINGLE CHAT
               </p>
 
-              {dailyMessageLimit !== null ? (
-                <div className="mt-3 rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-3 py-2">
-                  <p className="text-xs font-semibold text-[#FDE68A]">
-                    Freeメッセージ：今日あと{" "}
-                    <span className="text-[#F4F1EA]">
-                      {remainingMessagesToday}
-                    </span>{" "}
-                    / {dailyMessageLimit}
-                  </p>
-                  <p className="mt-1 text-[11px] leading-5 text-[#A7B0C0]">
-                    今日は {usedMessagesToday} 通送信済みです。
-                    初回登録日は30メッセージ、通常日は10メッセージまで話せます。
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3 rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-2">
-                  <p className="text-xs font-semibold text-[#D9F99D]">
-                    Premiumプラン：メッセージ上限が拡張されています。
-                  </p>
-                </div>
-              )}
+              <h1 className="mt-2 break-words text-2xl font-black leading-tight">
+                {characterName}
+              </h1>
             </div>
           </div>
         </header>
 
         {query.error ? (
-          <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+          <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
             {query.error}
           </div>
         ) : null}
 
-        {isFreeDailyLimitReached ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A]">
+        {shouldShowLimitNotice ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
             <p className="font-black text-[#FDE68A]">
               この子はまだ話したそうにしています。
             </p>
@@ -357,7 +339,7 @@ export default async function ChatPage({
           </div>
         ) : null}
 
-        <div className="mt-6 flex-1 space-y-4">
+        <div className="mt-6 space-y-4">
           {messages.length > 0 ? (
             messages.map((message) => {
               const isUser = message.sender_type === "user";
@@ -365,23 +347,43 @@ export default async function ChatPage({
               return (
                 <div
                   key={message.id}
-                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                  className={[
+                    "flex items-end gap-2",
+                    isUser ? "justify-end" : "justify-start",
+                  ].join(" ")}
                 >
+                  {!isUser ? (
+                    <div className="mb-5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 text-sm font-black text-[#E0F2FE]">
+                      {getAvatarText(characterName)}
+                    </div>
+                  ) : null}
+
                   <div
                     className={[
-                      "max-w-[85%] rounded-[1.5rem] border px-4 py-3",
-                      isUser
-                        ? "border-[#BEF264]/20 bg-[#BEF264]/10 text-[#F4F1EA]"
-                        : "border-white/10 bg-[#111827]/80 text-[#F4F1EA]",
+                      "flex max-w-[80%] flex-col",
+                      isUser ? "items-end" : "items-start",
                     ].join(" ")}
                   >
-                    <p className="text-xs font-semibold text-[#A7B0C0]">
-                      {isUser ? "あなた" : characterName}
-                    </p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-7">
-                      {message.content}
-                    </p>
-                    <p className="mt-2 text-right text-[11px] text-[#7D8AA3]">
+                    {!isUser ? (
+                      <p className="mb-1 px-2 text-[11px] font-semibold text-[#A7B0C0]">
+                        {characterName}
+                      </p>
+                    ) : null}
+
+                    <div
+                      className={[
+                        "rounded-[1.5rem] border px-4 py-3 shadow-lg",
+                        isUser
+                          ? "rounded-br-md border-[#BEF264]/20 bg-[#BEF264]/15 text-[#F4F1EA] shadow-[#BEF264]/5"
+                          : "rounded-bl-md border-white/10 bg-[#111827]/90 text-[#F4F1EA] shadow-black/20",
+                      ].join(" ")}
+                    >
+                      <p className="whitespace-pre-wrap text-sm leading-7">
+                        {message.content}
+                      </p>
+                    </div>
+
+                    <p className="mt-1 px-2 text-[10px] text-[#7D8AA3]">
                       {formatMessageTime(message.created_at)}
                     </p>
                   </div>
@@ -390,8 +392,8 @@ export default async function ChatPage({
             })
           ) : (
             <div className="rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#BEF264]/10 text-2xl">
-                ◇
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 text-2xl font-black text-[#D9F99D]">
+                {getAvatarText(characterName)}
               </div>
               <h2 className="mt-5 text-xl font-black">
                 まだ会話はありません
@@ -402,40 +404,54 @@ export default async function ChatPage({
             </div>
           )}
         </div>
+      </section>
 
-        <form
-          action={sendUserMessage}
-          className="mt-6 rounded-[2rem] border border-white/10 bg-[#111827]/90 p-4 shadow-2xl shadow-black/30"
-        >
+      <form
+        action={sendUserMessage}
+        className="fixed inset-x-0 bottom-[5.25rem] z-40 px-4 sm:px-5"
+      >
+        <div className="mx-auto max-w-md rounded-[2rem] border border-white/10 bg-[#111827]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
           <input type="hidden" name="threadId" value={thread.id} />
 
           <label className="block">
-            <span className="text-xs font-semibold text-[#A7B0C0]">
-              メッセージ
-            </span>
+            <span className="sr-only">メッセージ</span>
             <textarea
               name="content"
               placeholder={
-                isFreeDailyLimitReached
+                isMessageInputDisabled
                   ? "本日のFreeメッセージ上限に達しました"
                   : `${characterName}に話しかける`
               }
-              rows={4}
+              rows={3}
               required
-              disabled={isFreeDailyLimitReached}
-              className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm outline-none placeholder:text-[#6B7280] disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/60"
+              disabled={isMessageInputDisabled}
+              className="w-full resize-none rounded-[1.5rem] border border-white/10 bg-[#0B1020]/80 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/60"
             />
           </label>
 
-          <button
-            type="submit"
-            disabled={isFreeDailyLimitReached}
-            className="mt-3 w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {isFreeDailyLimitReached ? "本日のFree上限に達しました" : "送信する"}
-          </button>
-        </form>
-      </section>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              {dailyMessageLimit !== null ? (
+                <p className="truncate text-[11px] text-[#A7B0C0]">
+                  今日あと {remainingMessagesToday ?? 0} 通
+                </p>
+              ) : (
+                <p className="truncate text-[11px] text-[#A7B0C0]">
+                  Premiumメッセージ
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isMessageInputDisabled}
+              className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {isMessageInputDisabled ? "今日はここまで" : "送信"}
+            </button>
+          </div>
+        </div>
+      </form>
 
       <AppBottomNav />
     </main>
