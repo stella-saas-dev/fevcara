@@ -203,6 +203,7 @@ export default async function ChatPage({
   const { threadId } = await params;
   const query = await searchParams;
   const isFreeDailyLimitReached = query.limit === "free_daily_message";
+  const showMemoryDebug = process.env.FEVCARA_SHOW_MEMORY_DEBUG === "true";
 
   const supabase = await createClient();
 
@@ -252,27 +253,32 @@ export default async function ChatPage({
 
   const messages = (messagesData ?? []) as MessageRow[];
 
-  const { data: summaryData } = await supabase
-    .from("chat_thread_summaries")
-    .select(
-      `
-      summary_text,
-      important_facts,
-      open_questions,
-      user_preferences,
-      summarized_message_count,
-      summarized_until_created_at,
-      updated_at
-    `,
-    )
-    .eq("thread_id", thread.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+ let chatSummary: ChatThreadSummary | null = null;
 
-  const chatSummary = (summaryData ?? null) as ChatThreadSummary | null;
-  const importantFacts = toStringList(chatSummary?.important_facts);
-  const openQuestions = toStringList(chatSummary?.open_questions);
-  const userPreferences = toStringList(chatSummary?.user_preferences);
+  if (showMemoryDebug) {
+    const { data: summaryData } = await supabase
+      .from("chat_thread_summaries")
+      .select(
+        `
+        summary_text,
+        important_facts,
+        open_questions,
+        user_preferences,
+        summarized_message_count,
+        summarized_until_created_at,
+        updated_at
+      `,
+      )
+      .eq("thread_id", thread.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    chatSummary = (summaryData ?? null) as ChatThreadSummary | null;
+  }
+
+const importantFacts = toStringList(chatSummary?.important_facts);
+const openQuestions = toStringList(chatSummary?.open_questions);
+const userPreferences = toStringList(chatSummary?.user_preferences);
 
   let profileForUsage: ProfileForUsage = {
     plan: "free",
@@ -374,6 +380,7 @@ export default async function ChatPage({
           </div>
         </header>
 
+      {showMemoryDebug ? (
         <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 shadow-lg shadow-[#7DD3FC]/5">
           <summary className="cursor-pointer select-none text-sm font-black text-[#BAE6FD]">
             この子が覚えていること（開発用）
@@ -473,6 +480,7 @@ export default async function ChatPage({
             )}
           </div>
         </details>
+      ) : null}
 
         {query.error ? (
           <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
