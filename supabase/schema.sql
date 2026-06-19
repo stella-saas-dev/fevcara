@@ -310,3 +310,11 @@ from auth.users
 on conflict (id) do update set
   email = excluded.email,
   updated_at = now();
+
+
+  alter table public.characters
+add column if not exists role_name text,
+add column if not exists expertise text,
+add column if not exists consultation_style text,
+add column if not exists thinking_style text,
+add column if not exists team_position text;
