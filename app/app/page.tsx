@@ -3,12 +3,52 @@ import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "./actions";
 
+type ProfileRow = {
+  display_name: string | null;
+  treatment_preference: string | null;
+  user_setup_completed: boolean | null;
+};
+
+function getTreatmentPreferenceLabel(value: string | null) {
+  if (value === "masculine") {
+    return "男性として扱われたい";
+  }
+
+  if (value === "feminine") {
+    return "女性として扱われたい";
+  }
+
+  if (value === "neutral") {
+    return "中性的";
+  }
+
+  return "指定しない";
+}
+
 export default async function AppHomePage() {
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  let profile: ProfileRow | null = null;
+
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("display_name, treatment_preference, user_setup_completed")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    profile = profileData as ProfileRow | null;
+  }
+
+  const isUserSetupCompleted = Boolean(profile?.user_setup_completed);
+  const displayName = profile?.display_name?.trim() || null;
+  const treatmentPreferenceLabel = getTreatmentPreferenceLabel(
+    profile?.treatment_preference ?? "unspecified",
+  );
 
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -34,6 +74,56 @@ export default async function AppHomePage() {
             ✦
           </div>
         </header>
+
+        {!isUserSetupCompleted ? (
+          <div className="mt-8 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-2xl shadow-black/30">
+            <p className="text-sm font-black tracking-[0.16em] text-[#FDE68A]">
+              FIRST SETUP
+            </p>
+            <h2 className="mt-3 text-2xl font-black leading-tight">
+              まずはあなたのことを
+              <br />
+              教えてください
+            </h2>
+
+            <p className="mt-4 text-sm leading-7 text-[#F4F1EA]">
+              キャラクターたちが、あなたに自然に話しかけられるようにするための設定です。
+              本名でなくても大丈夫です。
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+              <p className="text-xs font-bold leading-6 text-[#D8DEE9]">
+                ここで設定する名前は、FevCara内で表示するユーザー名です。
+                キャラクターに呼ばれたい名前は、キャラクターごとの設定や出会いイベントで決められます。
+              </p>
+            </div>
+
+            <Link
+              href="/app/settings#user-profile"
+              className="mt-5 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition hover:scale-[1.01] hover:opacity-95"
+            >
+              ユーザー設定をする
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-8 rounded-[2rem] border border-[#BEF264]/20 bg-[#BEF264]/10 p-5 shadow-2xl shadow-black/30">
+            <p className="text-sm font-black tracking-[0.16em] text-[#D9F99D]">
+              USER PROFILE
+            </p>
+            <h2 className="mt-3 text-xl font-black">
+              {displayName ? `${displayName}さんの設定` : "ユーザー設定"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
+              扱われ方の好み：{treatmentPreferenceLabel}
+            </p>
+            <Link
+              href="/app/settings#user-profile"
+              className="mt-4 inline-block text-sm font-bold text-[#BEF264] hover:text-[#D9F99D]"
+            >
+              設定を変更する →
+            </Link>
+          </div>
+        )}
 
         <div className="mt-8 rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
           <p className="text-sm font-semibold text-[#7DD3FC]">

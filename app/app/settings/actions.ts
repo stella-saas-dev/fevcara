@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 
 type DevPlan = "free" | "premium_lite" | "premium";
 
+type TreatmentPreference =
+  | "masculine"
+  | "feminine"
+  | "neutral"
+  | "unspecified";
+
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -14,12 +20,87 @@ function isDevPlan(value: string): value is DevPlan {
   return value === "free" || value === "premium_lite" || value === "premium";
 }
 
+function isTreatmentPreference(value: string): value is TreatmentPreference {
+  return (
+    value === "masculine" ||
+    value === "feminine" ||
+    value === "neutral" ||
+    value === "unspecified"
+  );
+}
+
 function isDevPlanSwitchEnabled() {
   return process.env.FEVCARA_ENABLE_DEV_PLAN_SWITCH === "true";
 }
 
 function redirectWithError(message: string): never {
   redirect(`/app/settings?error=${encodeURIComponent(message)}`);
+}
+
+export async function updateUserProfile(formData: FormData) {
+  const displayName = getText(formData, "displayName");
+  const treatmentPreference = getText(formData, "treatmentPreference");
+
+  if (!displayName) {
+    redirectWithError("FevCara内でのあなたの名前を入力してください。");
+  }
+
+  if (!isTreatmentPreference(treatmentPreference)) {
+    redirectWithError("扱われ方の好みを選択してください。");
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profileData, error: profileFetchError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileFetchError) {
+    redirectWithError("プロフィール情報の取得に失敗しました。");
+  }
+
+  if (profileData) {
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        display_name: displayName,
+        treatment_preference: treatmentPreference,
+        user_setup_completed: true,
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      redirectWithError("ユーザー設定の保存に失敗しました。");
+    }
+  } else {
+    const { error: insertError } = await supabase.from("profiles").insert({
+      id: user.id,
+      email: user.email,
+      plan: "free",
+      display_name: displayName,
+      treatment_preference: treatmentPreference,
+      user_setup_completed: true,
+    });
+
+    if (insertError) {
+      redirectWithError("ユーザー設定の作成に失敗しました。");
+    }
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/settings");
+
+  redirect("/app/settings?profile_updated=1");
 }
 
 export async function updateDevPlan(formData: FormData) {
