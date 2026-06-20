@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { generateAndStoreCharacterImage } from "@/lib/fevcara/characterImage";
 
 export type CharacterFormField =
   | "temporaryName"
@@ -28,7 +27,6 @@ export type CharacterFormField =
   | "celebrationMonth"
   | "celebrationDay"
   | "celebrationTitle"
-  | "artStyle"
   | "appearanceDetail"
   | "absoluteSettings"
   | "safetyAgreement";
@@ -54,10 +52,8 @@ type CharacterLimitConfig = {
   label: string;
 };
 
-type ArtStyleRow = {
+type ArtStyleIdRow = {
   id: string;
-  name: string | null;
-  description: string | null;
 };
 
 function getText(formData: FormData, key: string) {
@@ -89,7 +85,6 @@ function getFormValues(formData: FormData): CharacterFormValues {
     celebrationMonth: getText(formData, "celebrationMonth"),
     celebrationDay: getText(formData, "celebrationDay"),
     celebrationTitle: getText(formData, "celebrationTitle"),
-    artStyle: getText(formData, "artStyle") || "midnight_anime",
     appearanceDetail: getText(formData, "appearanceDetail"),
     absoluteSettings: getText(formData, "absoluteSettings"),
     safetyAgreement: getText(formData, "safetyAgreement"),
@@ -158,7 +153,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
     return {
       planTier,
       limit: 3,
-      label: "Premium Lite",
+      label: "Lite",
     };
   }
 
@@ -250,6 +245,25 @@ async function checkCharacterCreateLimit({
   }
 
   return null;
+}
+
+async function getDefaultArtStylePresetId({
+  supabase,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+}) {
+  const { data, error } = await supabase
+    .from("art_style_presets")
+    .select("id")
+    .eq("slug", "midnight_anime")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return (data as ArtStyleIdRow).id;
 }
 
 function validateOriginalCharacterPolicy(values: CharacterFormValues) {
@@ -364,10 +378,6 @@ function validateCelebrationDate(values: CharacterFormValues) {
   return fieldErrors;
 }
 
-function getCharacterDisplayName(values: CharacterFormValues) {
-  return values.temporaryName || "名前のないキャラクター";
-}
-
 export async function createCharacter(
   _previousState: CreateCharacterState,
   formData: FormData,
@@ -431,22 +441,15 @@ export async function createCharacter(
     });
   }
 
-  const { data: artStyleData, error: artStyleError } = await supabase
-    .from("art_style_presets")
-    .select("id, name, description")
-    .eq("slug", values.artStyle || "midnight_anime")
-    .eq("is_active", true)
-    .single();
+  const defaultArtStylePresetId = await getDefaultArtStylePresetId({
+    supabase,
+  });
 
-  const artStyle = artStyleData as ArtStyleRow | null;
-
-  if (artStyleError || !artStyle) {
+  if (!defaultArtStylePresetId) {
     return createErrorState({
       values,
-      fieldErrors: {
-        artStyle: "絵柄プリセットを選び直してください。",
-      },
-      formError: "絵柄プリセットの取得に失敗しました。",
+      formError:
+        "初期絵柄プリセットの取得に失敗しました。絵柄プリセットSQLが実行済みか確認してください。",
     });
   }
 
@@ -484,7 +487,7 @@ export async function createCharacter(
       likes: values.likes || null,
       dislikes: values.dislikes || null,
 
-      art_style_preset_id: artStyle.id,
+      art_style_preset_id: defaultArtStylePresetId,
       status: "draft",
     })
     .select("id")
@@ -516,15 +519,5 @@ export async function createCharacter(
     }
   }
 
-  await generateAndStoreCharacterImage({
-    supabase,
-    userId: user.id,
-    characterId: character.id,
-    characterName: getCharacterDisplayName(values),
-    artStyleName: artStyle.name,
-    artStyleDescription: artStyle.description,
-    values,
-  });
-
-  redirect(`/app/characters/${character.id}/encounter`);
+  redirect(`/app/characters/${character.id}/visual`);
 }

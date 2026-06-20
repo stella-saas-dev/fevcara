@@ -315,22 +315,9 @@ export default async function CharacterDetailPage({
                       待機中
                     </span>
                   ) : null}
-
-                  <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-[#A7B0C0]">
-                    {character.status || "draft"}
-                  </span>
-
-                  <span className="rounded-full border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-3 py-1 text-xs text-[#BAE6FD]">
-                    {artStyleName}
-                  </span>
                 </div>
               </div>
             </div>
-
-            <p className="mt-5 text-sm leading-7 text-[#A7B0C0]">
-              このページでは、保存したキャラクター設定を確認できます。
-              次はここから画像生成やチャットへ進める導線を作っていきます。
-            </p>
           </div>
         </header>
 
@@ -374,16 +361,15 @@ export default async function CharacterDetailPage({
 
         <div className="mt-6 grid gap-5">
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled
-              className="rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-sm font-black text-[#D9F99D] opacity-70"
+            <Link
+              href={`/app/characters/${character.id}/visual`}
+              className="block h-full w-full rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-center text-sm font-black text-[#D9F99D] transition hover:bg-[#BEF264]/15"
             >
               姿を生成する
               <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                準備中
+                ビジュアルを決める
               </span>
-            </button>
+            </Link>
 
             {needsActiveCharacterSelection ? (
               <Link

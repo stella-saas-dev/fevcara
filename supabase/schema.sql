@@ -773,3 +773,272 @@ using (
   bucket_id = 'character-images'
   and (storage.foldername(name))[1] = auth.uid()::text
 );
+
+
+
+create extension if not exists pgcrypto;
+
+alter table public.characters
+add column if not exists background_image_id uuid;
+
+alter table public.characters
+add column if not exists icon_image_id uuid;
+
+alter table public.characters
+add column if not exists icon_image_url text;
+
+alter table public.characters
+add column if not exists icon_image_storage_path text;
+
+create table if not exists public.character_images (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  character_id uuid not null references public.characters(id) on delete cascade,
+  art_style_preset_id uuid references public.art_style_presets(id) on delete set null,
+  image_url text not null,
+  storage_path text not null,
+  image_prompt text,
+  image_quality text not null default 'medium',
+  credit_cost integer not null default 1,
+  is_background_selected boolean not null default false,
+  is_icon_selected boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists character_images_user_id_idx
+on public.character_images(user_id);
+
+create index if not exists character_images_character_id_idx
+on public.character_images(character_id);
+
+create table if not exists public.image_credit_transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  plan text not null default 'free',
+  source text not null,
+  amount integer not null,
+  expires_at timestamptz,
+  related_character_id uuid references public.characters(id) on delete set null,
+  related_image_id uuid references public.character_images(id) on delete set null,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists image_credit_transactions_user_id_idx
+on public.image_credit_transactions(user_id);
+
+create index if not exists image_credit_transactions_expires_at_idx
+on public.image_credit_transactions(expires_at);
+
+alter table public.character_images enable row level security;
+alter table public.image_credit_transactions enable row level security;
+
+drop policy if exists "Users can read own character images"
+on public.character_images;
+
+create policy "Users can read own character images"
+on public.character_images
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own character images"
+on public.character_images;
+
+create policy "Users can insert own character images"
+on public.character_images
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own character images"
+on public.character_images;
+
+create policy "Users can update own character images"
+on public.character_images
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own character images"
+on public.character_images;
+
+create policy "Users can delete own character images"
+on public.character_images
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own image credit transactions"
+on public.image_credit_transactions;
+
+create policy "Users can read own image credit transactions"
+on public.image_credit_transactions
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own image credit transactions"
+on public.image_credit_transactions;
+
+create policy "Users can insert own image credit transactions"
+on public.image_credit_transactions
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+insert into storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+)
+values (
+  'character-images',
+  'character-images',
+  true,
+  10485760,
+  array['image/png', 'image/webp', 'image/jpeg']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Character images are publicly readable"
+on storage.objects;
+
+create policy "Character images are publicly readable"
+on storage.objects
+for select
+using (
+  bucket_id = 'character-images'
+);
+
+drop policy if exists "Users can upload own character images"
+on storage.objects;
+
+create policy "Users can upload own character images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'character-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "Users can update own character images"
+on storage.objects;
+
+create policy "Users can update own character images"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'character-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'character-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "Users can delete own character images"
+on storage.objects;
+
+create policy "Users can delete own character images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'character-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+
+
+update public.art_style_presets
+set
+  name = '乙女ゲーム風',
+  description = '繊細な線、華やかな瞳、やわらかい光で描く、乙女ゲーム寄りの美麗イラストスタイル。',
+  prompt_template = 'otome game inspired original character illustration, elegant and delicate linework, beautiful expressive eyes, soft romantic lighting, polished Japanese visual novel style, refined colors, clean white background, non-photorealistic anime illustration',
+  safety_note = 'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+  sort_order = 10,
+  is_active = true
+where slug = 'midnight_anime';
+
+insert into public.art_style_presets (
+  slug,
+  name,
+  description,
+  prompt_template,
+  safety_note,
+  is_active,
+  sort_order
+)
+values
+  (
+    'shonen_manga',
+    '少年漫画風',
+    '力強い輪郭、はっきりした表情、アクション感のある少年漫画寄りのスタイル。',
+    'shonen manga inspired original character illustration, bold linework, energetic expression, clear silhouette, dynamic but clean character design, strong contrast, clean white background, non-photorealistic anime illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    20
+  ),
+  (
+    'light_novel',
+    'ライトノベル風',
+    '透明感のある塗りと現代的なキャラクターデザインで、物語性を出しやすいスタイル。',
+    'light novel style original character illustration, soft transparent coloring, modern anime character design, delicate shading, emotional atmosphere, clean white background, polished non-photorealistic illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    30
+  ),
+  (
+    'cel_anime',
+    'アニメ風（セル画調）',
+    'くっきりした影と色面で見やすく仕上げる、定番アニメ風のスタイル。',
+    'cel anime style original character illustration, clean flat colors, crisp shadows, clear outlines, classic animation look, readable expression, clean white background, non-photorealistic anime illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    40
+  ),
+  (
+    'webtoon',
+    'Webtoon風',
+    'スマホ画面で映える、輪郭と色がはっきりした縦読み漫画風のスタイル。',
+    'webtoon style original character illustration, clean bold outlines, vivid colors, modern mobile-friendly character art, bright polished finish, clean white background, non-photorealistic illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    50
+  ),
+  (
+    'chibi',
+    'ミニキャラ',
+    '二頭身にデフォルメした、かわいく親しみやすいミニキャラスタイル。',
+    'chibi style original character illustration, super deformed two-head-tall proportions, large expressive head, tiny cute body, full body visible, adorable simplified design, clean white background, non-photorealistic anime illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    60
+  ),
+  (
+    'fantasy',
+    'ファンタジー風',
+    '魔法、騎士、精霊、異世界風の衣装や雰囲気に合う幻想的なスタイル。',
+    'fantasy style original character illustration, magical atmosphere, elegant fantasy costume details, refined accessories, soft luminous lighting, beautiful character portrait, clean white background, non-photorealistic anime illustration',
+    'オリジナルキャラクター専用。実在人物、既存キャラクター、特定作品風、特定作家風、写真風、フォトリアルは禁止。',
+    true,
+    70
+  )
+on conflict (slug) do update
+set
+  name = excluded.name,
+  description = excluded.description,
+  prompt_template = excluded.prompt_template,
+  safety_note = excluded.safety_note,
+  is_active = excluded.is_active,
+  sort_order = excluded.sort_order;

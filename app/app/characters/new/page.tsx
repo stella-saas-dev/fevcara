@@ -4,37 +4,6 @@ import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
 import { CharacterCreateForm } from "./CharacterCreateForm";
 
-const artStyles = [
-  {
-    slug: "midnight_anime",
-    name: "Midnight Anime",
-    description: "夜にも映える、落ち着いたアニメ調の標準スタイル。",
-    previewClass:
-      "bg-[radial-gradient(circle_at_35%_30%,_#F4F1EA_0_8%,_transparent_9%),radial-gradient(circle_at_65%_30%,_#BEF264_0_8%,_transparent_9%),linear-gradient(135deg,_#1E293B,_#0B1020)]",
-  },
-  {
-    slug: "soft_novel",
-    name: "Soft Novel",
-    description: "やわらかい線と淡い陰影の、物語向けイラスト調。",
-    previewClass:
-      "bg-[radial-gradient(circle_at_35%_35%,_#FDE68A_0_9%,_transparent_10%),radial-gradient(circle_at_65%_35%,_#FBCFE8_0_9%,_transparent_10%),linear-gradient(135deg,_#FDE68A,_#A7F3D0)]",
-  },
-  {
-    slug: "clean_webtoon",
-    name: "Clean Webtoon",
-    description: "スマホで見やすい、輪郭がはっきりした現代的スタイル。",
-    previewClass:
-      "bg-[radial-gradient(circle_at_35%_32%,_#FFFFFF_0_8%,_transparent_9%),radial-gradient(circle_at_65%_32%,_#7DD3FC_0_8%,_transparent_9%),linear-gradient(135deg,_#2563EB,_#22C55E)]",
-  },
-  {
-    slug: "dark_fantasy",
-    name: "Dark Fantasy",
-    description: "影と幻想感を強めた、クールなキャラクター向けスタイル。",
-    previewClass:
-      "bg-[radial-gradient(circle_at_35%_35%,_#A78BFA_0_8%,_transparent_9%),radial-gradient(circle_at_65%_35%,_#FACC15_0_7%,_transparent_8%),linear-gradient(135deg,_#111827,_#581C87)]",
-  },
-];
-
 type PlanTier = "free" | "premium_lite" | "premium";
 
 type CharacterLimitConfig = {
@@ -82,8 +51,8 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
     return {
       planTier,
       limit: 3,
-      label: "Premium Lite",
-      description: "Premium Liteでは、最大3人までキャラクターを作成できます。",
+      label: "Lite",
+      description: "Liteでは、最大3人までキャラクターを作成できます。",
     };
   }
 
@@ -142,6 +111,7 @@ export default async function NewCharacterPage() {
           <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
             外見、話し方、表情、祝ってほしい日。
             あなたの“好き”から、あなただけのAIキャラクターを作ります。
+            保存後に、絵柄プリセットを選んでビジュアルを決めます。
           </p>
         </header>
 
@@ -224,11 +194,11 @@ export default async function NewCharacterPage() {
             </div>
 
             <p className="mt-5 text-xs leading-6 text-[#7D8AA3]">
-              Premium Lite以上にすると、複数のキャラクターやグループチャットを使えるようになります。
+              Lite以上にすると、複数のキャラクターやグループチャットを使えるようになります。
             </p>
           </div>
         ) : (
-          <CharacterCreateForm artStyles={artStyles} />
+          <CharacterCreateForm />
         )}
       </section>
 

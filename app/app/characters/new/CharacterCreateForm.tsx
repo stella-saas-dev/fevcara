@@ -8,17 +8,6 @@ import type {
   CreateCharacterState,
 } from "./actions";
 
-type ArtStyle = {
-  slug: string;
-  name: string;
-  description: string;
-  previewClass: string;
-};
-
-type CharacterCreateFormProps = {
-  artStyles: ArtStyle[];
-};
-
 const initialState: CreateCharacterState = {
   values: {
     temporaryName: "",
@@ -44,7 +33,6 @@ const initialState: CreateCharacterState = {
     celebrationMonth: "",
     celebrationDay: "",
     celebrationTitle: "",
-    artStyle: "midnight_anime",
     appearanceDetail: "",
     absoluteSettings: "",
     safetyAgreement: "",
@@ -90,12 +78,12 @@ function SubmitButton() {
       disabled={pending}
       className="w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
     >
-      {pending ? "保存中..." : "この内容で保存する"}
+      {pending ? "保存中..." : "キャラクターのビジュアルを決める"}
     </button>
   );
 }
 
-export function CharacterCreateForm({ artStyles }: CharacterCreateFormProps) {
+export function CharacterCreateForm() {
   const [state, formAction] = useActionState(createCharacter, initialState);
   const { inputClass, textareaClass } = useFieldStyles(state);
   const errorAlertRef = useRef<HTMLDivElement | null>(null);
@@ -253,7 +241,7 @@ export function CharacterCreateForm({ artStyles }: CharacterCreateFormProps) {
               className={inputClass("defaultExpression")}
             />
             <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
-              初回の立ち絵画像に反映する表情です。あとから調整できます。
+              ビジュアル決定画面で生成する画像に反映される表情です。あとから調整できます。
             </p>
             <FieldError message={state.fieldErrors.defaultExpression} />
           </label>
@@ -515,65 +503,6 @@ export function CharacterCreateForm({ artStyles }: CharacterCreateFormProps) {
             </label>
           </div>
         </div>
-      </section>
-
-      <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
-        <p className="text-sm font-semibold text-[#7DD3FC]">
-          STEP 5 / 絵柄プリセット
-        </p>
-        <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
-          FevCaraでは、実在人物・既存キャラクター・写真風の生成を防ぐため、
-          安全なオリジナルイラスト用プリセットから選びます。
-        </p>
-
-        <div className="mt-5 grid gap-3">
-          {artStyles.map((style, index) => (
-            <label
-              key={style.slug}
-              className={[
-                "block cursor-pointer rounded-3xl border bg-white/[0.04] p-4 transition hover:border-[#BEF264]/40 hover:bg-white/[0.07]",
-                state.fieldErrors.artStyle
-                  ? "border-red-400/70"
-                  : "border-white/10",
-              ].join(" ")}
-            >
-              <div className="flex items-center gap-4">
-                <input
-                  type="radio"
-                  name="artStyle"
-                  value={style.slug}
-                  defaultChecked={
-                    state.values.artStyle
-                      ? state.values.artStyle === style.slug
-                      : index === 0
-                  }
-                  className="shrink-0 accent-[#BEF264]"
-                />
-
-                <div
-                  className={[
-                    "relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-lg shadow-black/30",
-                    style.previewClass,
-                  ].join(" ")}
-                >
-                  <div className="absolute bottom-0 left-1/2 h-8 w-8 -translate-x-1/2 rounded-t-full bg-black/25" />
-                  <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border border-white/20 bg-white/15 backdrop-blur-sm" />
-                </div>
-
-                <div>
-                  <p className="text-sm font-bold text-[#F4F1EA]">
-                    {style.name}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
-                    {style.description}
-                  </p>
-                </div>
-              </div>
-            </label>
-          ))}
-        </div>
-
-        <FieldError message={state.fieldErrors.artStyle} />
       </section>
 
       <details className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
