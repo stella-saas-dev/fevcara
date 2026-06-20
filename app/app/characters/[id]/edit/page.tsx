@@ -54,11 +54,8 @@ type CelebrationDayRow = {
   title: string;
 };
 
-type ArtStylePresetRow = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
+type CurrentArtStyleRow = {
+  slug: string | null;
 };
 
 function valueOrEmpty(value: string | number | null | undefined) {
@@ -209,19 +206,19 @@ export default async function EditCharacterPage({
 
   const celebration = celebrationData as CelebrationDayRow | null;
 
-  const { data: artStylesData } = await supabase
-    .from("art_style_presets")
-    .select("id, slug, name, description")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  let selectedArtStyle = "midnight_anime";
 
-  const artStyles = (artStylesData ?? []) as ArtStylePresetRow[];
+  if (character.art_style_preset_id) {
+    const { data: currentArtStyleData } = await supabase
+      .from("art_style_presets")
+      .select("slug")
+      .eq("id", character.art_style_preset_id)
+      .maybeSingle();
 
-  const selectedArtStyle =
-    artStyles.find((style) => style.id === character.art_style_preset_id)
-      ?.slug ||
-    artStyles[0]?.slug ||
-    "midnight_anime";
+    const currentArtStyle = currentArtStyleData as CurrentArtStyleRow | null;
+
+    selectedArtStyle = currentArtStyle?.slug || "midnight_anime";
+  }
 
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -237,9 +234,7 @@ export default async function EditCharacterPage({
           <p className="mt-8 text-sm font-semibold tracking-[0.24em] text-[#FACC15]">
             EDIT CHARACTER
           </p>
-          <h1 className="mt-2 text-3xl font-black">
-            キャラ設定を編集
-          </h1>
+          <h1 className="mt-2 text-3xl font-black">キャラ設定を編集</h1>
           <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
             外見・口調・専門性・大切な日を修正できます。
             保存後のチャットでは、新しい設定がAI返信に反映されます。
@@ -254,6 +249,7 @@ export default async function EditCharacterPage({
 
         <form action={updateCharacter} className="mt-8 space-y-6">
           <input type="hidden" name="characterId" value={character.id} />
+          <input type="hidden" name="artStyle" value={selectedArtStyle} />
 
           <EditSection
             title="基本プロフィール"
@@ -499,35 +495,6 @@ export default async function EditCharacterPage({
               defaultValue={celebration?.title}
               placeholder="例：出会った日 / 誕生日 / デビュー記念日"
             />
-          </EditSection>
-
-          <EditSection
-            title="絵柄プリセット"
-            description="今後の画像生成で使う絵柄の方向性です。"
-          >
-            <label className="block">
-              <span className="text-xs font-semibold text-[#D8DEE9]">
-                絵柄
-              </span>
-              <select
-                name="artStyle"
-                defaultValue={selectedArtStyle}
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm outline-none focus:border-[#BEF264]/60"
-              >
-                {artStyles.map((style) => (
-                  <option key={style.id} value={style.slug}>
-                    {style.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-xs leading-6 text-[#A7B0C0]">
-                現在はプリセット名のみ変更できます。
-                画像生成の本実装時に、ここで選んだ絵柄をプロンプトへ反映します。
-              </p>
-            </div>
           </EditSection>
 
           <div className="sticky bottom-24 z-10 rounded-[2rem] border border-white/10 bg-[#111827]/95 p-4 shadow-2xl shadow-black/40 backdrop-blur">

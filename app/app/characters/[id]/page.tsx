@@ -14,17 +14,6 @@ type CharacterDetailPageProps = {
   }>;
 };
 
-type ArtStylePresetRelation =
-  | {
-      name: string | null;
-      description: string | null;
-    }
-  | {
-      name: string | null;
-      description: string | null;
-    }[]
-  | null;
-
 type CharacterDetailRow = {
   id: string;
   temporary_name: string | null;
@@ -58,8 +47,8 @@ type CharacterDetailRow = {
   dislikes: string | null;
 
   status: string | null;
+  icon_image_url: string | null;
   created_at: string;
-  art_style_presets: ArtStylePresetRelation;
 };
 
 type CelebrationDayRow = {
@@ -84,20 +73,14 @@ function isFreePlan(plan: string | null) {
   return normalizePlan(plan) === "free";
 }
 
-function getArtStyleName(artStylePresets: ArtStylePresetRelation) {
-  if (Array.isArray(artStylePresets)) {
-    return artStylePresets[0]?.name ?? "Art Style";
+function getAvatarText(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return "◇";
   }
 
-  return artStylePresets?.name ?? "Art Style";
-}
-
-function getArtStyleDescription(artStylePresets: ArtStylePresetRelation) {
-  if (Array.isArray(artStylePresets)) {
-    return artStylePresets[0]?.description ?? null;
-  }
-
-  return artStylePresets?.description ?? null;
+  return trimmedName.slice(0, 1);
 }
 
 function DetailSection({
@@ -130,6 +113,53 @@ function DetailItem({
       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#F4F1EA]">
         {value || "未設定"}
       </p>
+    </div>
+  );
+}
+
+function CharacterHeaderAvatar({
+  name,
+  imageUrl,
+  needsActiveCharacterSelection,
+  isWaitingCharacter,
+}: {
+  name: string;
+  imageUrl: string | null;
+  needsActiveCharacterSelection: boolean;
+  isWaitingCharacter: boolean;
+}) {
+  const baseClass =
+    "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.5rem] border text-3xl font-black";
+
+  if (imageUrl) {
+    return (
+      <div
+        className={[
+          baseClass,
+          needsActiveCharacterSelection
+            ? "border-[#F9A8D4]/45 bg-white shadow-lg shadow-[#F9A8D4]/15"
+            : isWaitingCharacter
+              ? "border-white/10 bg-white/[0.04] opacity-70"
+              : "border-[#BEF264]/20 bg-white shadow-lg shadow-[#7DD3FC]/10",
+        ].join(" ")}
+      >
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        baseClass,
+        needsActiveCharacterSelection
+          ? "border-[#F9A8D4]/45 bg-[#F9A8D4]/15 text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15"
+          : isWaitingCharacter
+            ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
+            : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
+      ].join(" ")}
+    >
+      {getAvatarText(name)}
     </div>
   );
 }
@@ -181,11 +211,8 @@ export default async function CharacterDetailPage({
       likes,
       dislikes,
       status,
-      created_at,
-      art_style_presets (
-        name,
-        description
-      )
+      icon_image_url,
+      created_at
     `,
     )
     .eq("id", id)
@@ -249,11 +276,6 @@ export default async function CharacterDetailPage({
     character.temporary_name ||
     "名前のないキャラクター";
 
-  const artStyleName = getArtStyleName(character.art_style_presets);
-  const artStyleDescription = getArtStyleDescription(
-    character.art_style_presets,
-  );
-
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
@@ -276,18 +298,12 @@ export default async function CharacterDetailPage({
             ].join(" ")}
           >
             <div className="flex items-start gap-4">
-              <div
-                className={[
-                  "flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border text-3xl font-black",
-                  needsActiveCharacterSelection
-                    ? "border-[#F9A8D4]/45 bg-[#F9A8D4]/15 text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15"
-                    : isWaitingCharacter
-                      ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
-                      : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
-                ].join(" ")}
-              >
-                {characterName.slice(0, 1)}
-              </div>
+              <CharacterHeaderAvatar
+                name={characterName}
+                imageUrl={character.icon_image_url}
+                needsActiveCharacterSelection={needsActiveCharacterSelection}
+                isWaitingCharacter={isWaitingCharacter}
+              />
 
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold tracking-[0.24em] text-[#FACC15]">
@@ -354,7 +370,7 @@ export default async function CharacterDetailPage({
             </p>
             <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
               現在のFreeプランでは、選択した1人のキャラクターだけに話しかけられます。
-              このキャラクターの設定は残っていますが、チャットはPremium Lite以上で再開できる設計にします。
+              このキャラクターの設定は残っていますが、チャットはLite以上で再開できる設計にします。
             </p>
           </div>
         ) : null}
@@ -495,11 +511,6 @@ export default async function CharacterDetailPage({
             ) : (
               <DetailItem label="登録された日" value="未設定" />
             )}
-          </DetailSection>
-
-          <DetailSection title="絵柄プリセット" accent="text-[#BEF264]">
-            <DetailItem label="プリセット名" value={artStyleName} />
-            <DetailItem label="説明" value={artStyleDescription} />
           </DetailSection>
 
           <DetailSection title="こだわり設定" accent="text-[#FACC15]">

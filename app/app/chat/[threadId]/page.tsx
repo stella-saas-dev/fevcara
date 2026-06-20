@@ -22,6 +22,8 @@ type CharacterRelation =
       final_name: string | null;
       role_name: string | null;
       default_expression: string | null;
+      icon_image_url: string | null;
+      image_url: string | null;
     }
   | {
       id: string;
@@ -29,6 +31,8 @@ type CharacterRelation =
       final_name: string | null;
       role_name: string | null;
       default_expression: string | null;
+      icon_image_url: string | null;
+      image_url: string | null;
     }[]
   | null;
 
@@ -209,6 +213,49 @@ function formatMemoryDateTime(value: string | null) {
   });
 }
 
+function CharacterAvatar({
+  name,
+  imageUrl,
+  sizeClass,
+  roundedClass,
+  textClass,
+  borderClass,
+}: {
+  name: string;
+  imageUrl: string | null;
+  sizeClass: string;
+  roundedClass: string;
+  textClass: string;
+  borderClass: string;
+}) {
+  const baseClass = [
+    "relative shrink-0 overflow-hidden border bg-gradient-to-br from-[#BEF264]/20 via-white/[0.06] to-[#7DD3FC]/20 shadow-lg shadow-[#7DD3FC]/10",
+    sizeClass,
+    roundedClass,
+    textClass,
+    borderClass,
+  ].join(" ");
+
+  if (imageUrl) {
+    return (
+      <div className={baseClass}>
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        baseClass,
+        "flex items-center justify-center font-black text-[#F4F1EA]",
+      ].join(" ")}
+    >
+      {getAvatarText(name)}
+    </div>
+  );
+}
+
 export default async function ChatPage({
   params,
   searchParams,
@@ -241,7 +288,9 @@ export default async function ChatPage({
         temporary_name,
         final_name,
         role_name,
-        default_expression
+        default_expression,
+        icon_image_url,
+        image_url
       )
     `,
     )
@@ -256,6 +305,8 @@ export default async function ChatPage({
   const thread = threadData as ThreadRow;
   const character = getCharacterFromRelation(thread.characters);
   const characterName = getCharacterName(character);
+  const characterIconUrl = character?.icon_image_url ?? null;
+  const characterBackgroundUrl = character?.image_url ?? null;
 
   const { data: messagesData } = await supabase
     .from("chat_messages")
@@ -402,30 +453,56 @@ export default async function ChatPage({
     messages.length > 0 ? messages[messages.length - 1].id : "empty";
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
+    <main className="relative min-h-screen overflow-hidden bg-[#EEF1F4] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
+      {characterBackgroundUrl ? (
+        <>
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#EEF1F4]">
+            <img
+              src={characterBackgroundUrl}
+              alt=""
+              className="h-[100svh] w-auto max-w-none object-contain object-center opacity-[0.92]"
+            />
+          </div>
+
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(238,241,244,0.24),rgba(238,241,244,0.14)_14%,rgba(15,23,42,0.12)_34%,rgba(15,23,42,0.24)_56%,rgba(15,23,42,0.42)_78%,rgba(15,23,42,0.62)_100%)]" />
+
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.28),transparent_26%),radial-gradient(circle_at_50%_48%,rgba(125,211,252,0.08),transparent_30%),radial-gradient(circle_at_18%_82%,rgba(190,242,100,0.06),transparent_22%)]" />
+        </>
+      ) : (
+        <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020]" />
+      )}
+
       <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
 
-      <section className="mx-auto w-full max-w-md">
-        <header className="sticky top-3 z-30 rounded-[2rem] border border-white/10 bg-[#111827]/90 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl">
+      <section className="relative z-10 mx-auto w-full max-w-md">
+        <header className="sticky top-3 z-30 rounded-[2rem] border border-white/16 bg-[#0F172A]/54 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/app/chats"
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#7DD3FC]/40 hover:text-[#F4F1EA]"
+              className="rounded-full border border-white/10 bg-white/[0.10] px-3 py-2 text-xs font-semibold text-[#E2E8F0] transition hover:border-[#7DD3FC]/40 hover:text-[#F8FAFC]"
             >
               ← チャット一覧
             </Link>
 
             <Link
               href="/app/characters"
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#BEF264]/40 hover:text-[#F4F1EA]"
+              className="rounded-full border border-white/10 bg-white/[0.10] px-3 py-2 text-xs font-semibold text-[#E2E8F0] transition hover:border-[#BEF264]/40 hover:text-[#F8FAFC]"
             >
               キャラ一覧
             </Link>
           </div>
 
           <div className="mt-5 flex items-center gap-4">
-            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-2xl font-black text-[#F4F1EA] shadow-lg shadow-[#7DD3FC]/10">
-              {getAvatarText(characterName)}
+            <div className="relative">
+              <CharacterAvatar
+                name={characterName}
+                imageUrl={characterIconUrl}
+                sizeClass="h-14 w-14"
+                roundedClass="rounded-[1.4rem]"
+                textClass="text-2xl"
+                borderClass="border-[#BEF264]/25"
+              />
+
               <span
                 className={[
                   "absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020]",
@@ -442,7 +519,7 @@ export default async function ChatPage({
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h1 className="break-words text-2xl font-black leading-tight">
+                <h1 className="break-words text-2xl font-black leading-tight text-white">
                   {characterName}
                 </h1>
 
@@ -463,7 +540,7 @@ export default async function ChatPage({
         </header>
 
         {showMemoryDebug ? (
-          <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 shadow-lg shadow-[#7DD3FC]/5">
+          <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/12 p-4 shadow-lg shadow-[#7DD3FC]/5 backdrop-blur">
             <summary className="cursor-pointer select-none text-sm font-black text-[#BAE6FD]">
               この子が覚えていること（開発用）
             </summary>
@@ -565,17 +642,17 @@ export default async function ChatPage({
         ) : null}
 
         {query.error ? (
-          <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/10 p-4 text-sm leading-6 text-red-100">
+          <div className="mt-5 rounded-[1.5rem] border border-red-400/30 bg-red-400/12 p-4 text-sm leading-6 text-red-100 backdrop-blur">
             {query.error}
           </div>
         ) : null}
 
         {needsActiveCharacterSelection ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
               先に使うキャラクターを選んでください。
             </p>
-            <p className="mt-2 text-[#F4F1EA]">
+            <p className="mt-2 text-[#F8FAFC]">
               現在キャラクターが{totalCharacters}
               人います。Freeプランでは、チャットできるキャラクターを1人だけ選ぶ必要があります。
             </p>
@@ -589,14 +666,14 @@ export default async function ChatPage({
         ) : null}
 
         {shouldShowLimitNotice ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
               この子はまだ話したそうにしています。
             </p>
-            <p className="mt-2 text-[#F4F1EA]">
-              続きは明日、またはPremium Liteで今すぐ再開できます。
+            <p className="mt-2 text-[#F8FAFC]">
+              続きは明日、またはLiteで今すぐ再開できます。
             </p>
-            <p className="mt-3 text-xs leading-5 text-[#A7B0C0]">
+            <p className="mt-3 text-xs leading-5 text-[#E2E8F0]">
               Freeプランでは、通常1日10メッセージまで話せます。
               初回登録日は30メッセージまで体験できます。
             </p>
@@ -604,16 +681,16 @@ export default async function ChatPage({
         ) : null}
 
         {!needsActiveCharacterSelection && isWaitingThreadCharacter ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
               このキャラクターは現在待機中です。
             </p>
-            <p className="mt-2 text-[#F4F1EA]">
+            <p className="mt-2 text-[#F8FAFC]">
               Freeプランでは、選択した1人のキャラクターだけとチャットできます。
             </p>
-            <p className="mt-3 text-xs leading-5 text-[#A7B0C0]">
+            <p className="mt-3 text-xs leading-5 text-[#E2E8F0]">
               このキャラクターの設定や会話履歴は削除されません。
-              Premium Lite以上で再開できる設計にします。
+              Lite以上で再開できる設計にします。
             </p>
           </div>
         ) : null}
@@ -632,8 +709,15 @@ export default async function ChatPage({
                   ].join(" ")}
                 >
                   {!isUser ? (
-                    <div className="mb-5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 text-sm font-black text-[#E0F2FE]">
-                      {getAvatarText(characterName)}
+                    <div className="mb-5">
+                      <CharacterAvatar
+                        name={characterName}
+                        imageUrl={characterIconUrl}
+                        sizeClass="h-9 w-9"
+                        roundedClass="rounded-2xl"
+                        textClass="text-sm"
+                        borderClass="border-[#7DD3FC]/20"
+                      />
                     </div>
                   ) : null}
 
@@ -644,40 +728,64 @@ export default async function ChatPage({
                     ].join(" ")}
                   >
                     {!isUser ? (
-                      <p className="mb-1 px-2 text-[11px] font-semibold text-[#A7B0C0]">
-                        {characterName}
-                      </p>
+                      <div className="mb-1 px-1">
+                        <span className="inline-flex rounded-full border border-[#0F172A]/22 bg-[#0F172A]/52 px-2.5 py-1 text-[11px] font-bold text-[#F8FAFC] shadow-sm backdrop-blur-md">
+                          {characterName}
+                        </span>
+                      </div>
                     ) : null}
 
                     <div
                       className={[
-                        "rounded-[1.5rem] border px-4 py-3 shadow-lg",
+                        "rounded-[1.5rem] border px-4 py-3 shadow-lg backdrop-blur-md",
                         isUser
-                          ? "rounded-br-md border-[#BEF264]/20 bg-[#BEF264]/15 text-[#F4F1EA] shadow-[#BEF264]/5"
-                          : "rounded-bl-md border-white/10 bg-[#111827]/90 text-[#F4F1EA] shadow-black/20",
+                          ? "rounded-br-md border-[#D9F99D]/38 bg-[rgba(235,255,198,0.68)] text-[#17212F] shadow-[#BEF264]/8"
+                          : "rounded-bl-md border-white/14 bg-[#0F172A]/56 text-[#F8FAFC] shadow-black/12",
                       ].join(" ")}
                     >
-                      <p className="whitespace-pre-wrap text-sm leading-7">
+                      <p
+                        className={[
+                          "whitespace-pre-wrap text-sm leading-7",
+                          isUser ? "font-semibold" : "",
+                        ].join(" ")}
+                      >
                         {message.content}
                       </p>
                     </div>
 
-                    <p className="mt-1 px-2 text-[10px] text-[#7D8AA3]">
-                      {formatMessageTime(message.created_at)}
-                    </p>
+                    <div className="mt-1 px-1">
+                      <span
+                        className={[
+                          "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-md",
+                          isUser
+                            ? "border-[#0F172A]/16 bg-[rgba(255,255,255,0.52)] text-[#334155]"
+                            : "border-[#0F172A]/20 bg-[#0F172A]/46 text-[#F1F5F9]",
+                        ].join(" ")}
+                      >
+                        {formatMessageTime(message.created_at)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 text-2xl font-black text-[#D9F99D]">
-                {getAvatarText(characterName)}
+            <div className="rounded-[2rem] border border-dashed border-white/15 bg-white/[0.08] p-6 text-center backdrop-blur">
+              <div className="mx-auto w-fit">
+                <CharacterAvatar
+                  name={characterName}
+                  imageUrl={characterIconUrl}
+                  sizeClass="h-16 w-16"
+                  roundedClass="rounded-3xl"
+                  textClass="text-2xl"
+                  borderClass="border-[#BEF264]/20"
+                />
               </div>
-              <h2 className="mt-5 text-xl font-black">
+
+              <h2 className="mt-5 text-xl font-black text-white">
                 まだ会話はありません
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
+              <p className="mt-3 text-sm leading-6 text-[#E2E8F0]">
                 最初のひと言を送って、このキャラクターと話し始めましょう。
               </p>
             </div>
@@ -689,26 +797,26 @@ export default async function ChatPage({
         action={sendUserMessage}
         className="fixed inset-x-0 bottom-[5.25rem] z-40 px-4 sm:px-5"
       >
-        <div className="mx-auto max-w-md rounded-[2rem] border border-white/10 bg-[#111827]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
+        <div className="mx-auto max-w-md rounded-[2rem] border border-white/14 bg-[#0F172A]/50 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
           <input type="hidden" name="threadId" value={thread.id} />
 
           {needsActiveCharacterSelection ? (
-            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
               <p className="text-xs font-black text-[#FDE68A]">
                 先に使うキャラクターを選んでください
               </p>
-              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
+              <p className="mt-1 text-[11px] leading-5 text-[#E2E8F0]">
                 Freeプランでは、チャットできるキャラクターを1人だけ選ぶ必要があります。
               </p>
             </div>
           ) : null}
 
           {!needsActiveCharacterSelection && isWaitingThreadCharacter ? (
-            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
               <p className="text-xs font-black text-[#FDE68A]">
                 このキャラクターは待機中です
               </p>
-              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
+              <p className="mt-1 text-[11px] leading-5 text-[#E2E8F0]">
                 現在のFreeプランでは、選択したキャラクターだけに送信できます。
               </p>
             </div>
@@ -717,18 +825,17 @@ export default async function ChatPage({
           {!needsActiveCharacterSelection &&
           !isWaitingThreadCharacter &&
           shouldShowLimitNotice ? (
-            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3">
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
               <p className="text-xs font-black text-[#FDE68A]">
                 本日のFreeメッセージ上限に達しました
               </p>
-              <p className="mt-1 text-[11px] leading-5 text-[#D8DEE9]">
-                続きは明日、またはPremium Liteで再開できます。
+              <p className="mt-1 text-[11px] leading-5 text-[#E2E8F0]">
+                続きは明日、またはLiteで再開できます。
               </p>
             </div>
           ) : null}
 
           <label className="block">
-
             <span className="sr-only">メッセージ</span>
             <textarea
               name="content"
@@ -744,7 +851,7 @@ export default async function ChatPage({
               rows={3}
               required
               disabled={isMessageInputDisabled}
-              className="w-full resize-none rounded-[1.5rem] border border-white/10 bg-[#0B1020]/80 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/60"
+              className="w-full resize-none rounded-[1.5rem] border border-white/14 bg-[#0B1020]/40 px-4 py-3 text-sm leading-6 text-[#F8FAFC] outline-none placeholder:text-[#CBD5E1] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/50"
             />
           </label>
 
@@ -759,11 +866,11 @@ export default async function ChatPage({
                   Freeプランでは待機中
                 </p>
               ) : dailyMessageLimit !== null ? (
-                <p className="truncate text-[11px] text-[#A7B0C0]">
+                <p className="truncate text-[11px] text-[#E2E8F0]">
                   今日あと {remainingMessagesToday ?? 0} 通
                 </p>
               ) : (
-                <p className="truncate text-[11px] text-[#A7B0C0]">
+                <p className="truncate text-[11px] text-[#E2E8F0]">
                   Premiumメッセージ
                 </p>
               )}

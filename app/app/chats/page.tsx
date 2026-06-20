@@ -10,6 +10,7 @@ type CharacterRelation =
       final_name: string | null;
       role_name: string | null;
       default_expression: string | null;
+      icon_image_url: string | null;
     }
   | {
       id: string;
@@ -17,6 +18,7 @@ type CharacterRelation =
       final_name: string | null;
       role_name: string | null;
       default_expression: string | null;
+      icon_image_url: string | null;
     }[]
   | null;
 
@@ -200,7 +202,8 @@ export default async function ChatsPage() {
         temporary_name,
         final_name,
         role_name,
-        default_expression
+        default_expression,
+        icon_image_url
       )
     `,
     )
@@ -366,6 +369,10 @@ export default async function ChatsPage() {
               const characterName = getCharacterName(character);
               const latestMessage = latestMessageMap.get(thread.id);
               const isGroupChat = thread.chat_type === "group";
+              const characterIconUrl =
+                !isGroupChat && character?.icon_image_url
+                  ? character.icon_image_url
+                  : null;
 
               const isWaitingThreadCharacter =
                 isFreeCharacterLocked &&
@@ -400,13 +407,23 @@ export default async function ChatsPage() {
                   <div className="flex items-center gap-4">
                     <div
                       className={[
-                        "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] border text-xl font-black shadow-lg",
+                        "relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border text-xl font-black shadow-lg",
                         isLimitedThread
                           ? "border-white/10 bg-white/[0.04] text-[#7D8AA3] shadow-black/10"
                           : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
                       ].join(" ")}
                     >
-                      {isGroupChat ? "群" : getAvatarText(characterName)}
+                      {characterIconUrl ? (
+                        <img
+                          src={characterIconUrl}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>
+                          {isGroupChat ? "群" : getAvatarText(characterName)}
+                        </span>
+                      )}
 
                       {!isLimitedThread ? (
                         <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border border-[#0B1020] bg-[#BEF264]" />

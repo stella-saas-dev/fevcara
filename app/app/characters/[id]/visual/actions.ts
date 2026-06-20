@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -362,7 +363,7 @@ export async function startEncounterFromVisual(formData: FormData) {
 
   const { data: characterData, error: characterError } = await supabase
     .from("characters")
-    .select("background_image_id, icon_image_id")
+    .select("background_image_id, icon_image_id, status")
     .eq("id", characterId)
     .eq("user_id", user.id)
     .single();
@@ -377,6 +378,10 @@ export async function startEncounterFromVisual(formData: FormData) {
 
   if (!characterData.icon_image_id) {
     redirectWithError(characterId, "アイコン用画像を選んでください。");
+  }
+
+  if (characterData.status === "active") {
+    redirect(`/app/characters/${characterId}`);
   }
 
   redirect(`/app/characters/${characterId}/encounter`);
@@ -474,4 +479,143 @@ export async function deleteCharacterVisual(formData: FormData) {
   revalidatePath("/app/characters");
 
   redirectWithSuccess(characterId, "画像を削除しました。");
+}
+
+export async function saveCroppedCharacterIcon(formData: FormData) {
+  const characterId = getText(formData, "characterId");
+  const imageId = getText(formData, "imageId");
+  const croppedImageDataUrl = getText(formData, "croppedImageDataUrl");
+
+  if (!characterId || !imageId) {
+    redirect("/app/characters");
+  }
+
+  if (!croppedImageDataUrl) {
+    redirectWithError(characterId, "アイコン画像の切り抜きデータがありません。");
+  }
+
+  const match = croppedImageDataUrl.match(
+    /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/i,
+  );
+
+  if (!match) {
+    redirectWithError(characterId, "アイコン画像の形式が不正です。");
+  }
+
+  const extension = match[1]?.toLowerCase();
+  const base64Data = match[2];
+
+  if (!extension || !base64Data) {
+    redirectWithError(characterId, "アイコン画像のデータが不正です。");
+  }
+
+  const mimeType = extension === "jpg" ? "image/jpeg" : `image/${extension}`;
+  const imageBuffer = Buffer.from(base64Data, "base64");
+
+  if (imageBuffer.length <= 0) {
+    redirectWithError(characterId, "アイコン画像の保存データが空です。");
+  }
+
+  const { supabase, user } = await getAuthenticatedUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: sourceImageData, error: sourceImageError } = await supabase
+    .from("character_images")
+    .select("id, image_url, storage_path")
+    .eq("id", imageId)
+    .eq("character_id", characterId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (sourceImageError || !sourceImageData) {
+    redirectWithError(characterId, "元画像が見つかりません。");
+  }
+
+  const { data: characterData, error: characterError } = await supabase
+    .from("characters")
+    .select("icon_image_storage_path")
+    .eq("id", characterId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (characterError || !characterData) {
+    redirectWithError(characterId, "キャラクター情報の確認に失敗しました。");
+  }
+
+  const croppedIconId = randomUUID();
+  const iconStoragePath = `${user.id}/${characterId}/icons/${croppedIconId}.png`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("character-images")
+    .upload(iconStoragePath, imageBuffer, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    redirectWithError(characterId, "切り抜きアイコンのアップロードに失敗しました。");
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from("character-images")
+    .getPublicUrl(iconStoragePath);
+
+  const iconUrl = publicUrlData.publicUrl;
+
+  await supabase
+    .from("character_images")
+    .update({ is_icon_selected: false })
+    .eq("character_id", characterId)
+    .eq("user_id", user.id);
+
+  const { error: imageUpdateError } = await supabase
+    .from("character_images")
+    .update({ is_icon_selected: true })
+    .eq("id", imageId)
+    .eq("user_id", user.id);
+
+  if (imageUpdateError) {
+    redirectWithError(characterId, "アイコン元画像の選択に失敗しました。");
+  }
+
+  const { error: characterUpdateError } = await supabase
+    .from("characters")
+    .update({
+      icon_image_id: imageId,
+      icon_image_url: iconUrl,
+      icon_image_storage_path: iconStoragePath,
+    })
+    .eq("id", characterId)
+    .eq("user_id", user.id);
+
+  if (characterUpdateError) {
+    redirectWithError(characterId, "キャラクターアイコンの保存に失敗しました。");
+  }
+
+  const oldIconStoragePath = String(
+    characterData.icon_image_storage_path ?? "",
+  ).trim();
+
+  if (
+    oldIconStoragePath &&
+    oldIconStoragePath !== iconStoragePath &&
+    oldIconStoragePath.startsWith(`${user.id}/${characterId}/icons/`)
+  ) {
+    const { error: oldIconDeleteError } = await supabase.storage
+      .from("character-images")
+      .remove([oldIconStoragePath]);
+
+    if (oldIconDeleteError) {
+      console.error("Old cropped icon delete error:", oldIconDeleteError);
+    }
+  }
+
+  revalidatePath(`/app/characters/${characterId}/visual`);
+  revalidatePath(`/app/characters/${characterId}`);
+  revalidatePath("/app/characters");
+
+  redirectWithSuccess(characterId, "アイコン画像を保存しました。");
 }

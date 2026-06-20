@@ -212,6 +212,7 @@ export default async function CharacterVisualPage({
   const characterName = getCharacterName(character);
   const canStartEncounter =
     Boolean(character.background_image_id) && Boolean(character.icon_image_id);
+  const isEncounterCompleted = character.status === "active";
 
   const defaultArtStyleId =
     character.art_style_preset_id || artStyles[0]?.id || "";
@@ -340,52 +341,52 @@ export default async function CharacterVisualPage({
           </div>
 
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
-            <p className="text-sm font-black text-[#F4F1EA]">画像品質</p>
+            <p className="text-sm font-black text-[#F4F1EA]">構図</p>
+            <p className="mt-2 text-xs leading-5 text-[#A7B0C0]">
+              背景・イベント用なら全身、アイコン用なら上半身が向いています。
+              同じキャラクターで複数構図を生成して使い分けできます。
+            </p>
 
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
-              <p className="text-sm font-black text-[#F4F1EA]">構図</p>
-              <p className="mt-2 text-xs leading-5 text-[#A7B0C0]">
-                背景・イベント用なら全身、アイコン用なら上半身が向いています。
-                同じキャラクターで複数構図を生成して使い分けできます。
-              </p>
-
-              <div className="mt-4 grid gap-3">
-                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#BEF264]/25 bg-[#BEF264]/10 p-4">
-                  <input
-                    type="radio"
-                    name="imageFraming"
-                    value="full_body"
-                    defaultChecked
-                    className="mt-1 shrink-0 accent-[#BEF264]"
-                  />
-                  <span>
-                    <span className="block text-sm font-black text-[#D9F99D]">
-                      全身
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                      頭から足先まで入る構図。背景用・出会いイベント用におすすめです。
-                    </span>
+            <div className="mt-4 grid gap-3">
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#BEF264]/25 bg-[#BEF264]/10 p-4">
+                <input
+                  type="radio"
+                  name="imageFraming"
+                  value="full_body"
+                  defaultChecked
+                  className="mt-1 shrink-0 accent-[#BEF264]"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#D9F99D]">
+                    全身
                   </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 p-4">
-                  <input
-                    type="radio"
-                    name="imageFraming"
-                    value="upper_body"
-                    className="mt-1 shrink-0 accent-[#7DD3FC]"
-                  />
-                  <span>
-                    <span className="block text-sm font-black text-[#BAE6FD]">
-                      上半身
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                      顔・髪・肩まわりが大きく見える構図。アイコン用におすすめです。
-                    </span>
+                  <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
+                    頭から足先まで入る構図。背景用・出会いイベント用におすすめです。
                   </span>
-                </label>
-              </div>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 p-4">
+                <input
+                  type="radio"
+                  name="imageFraming"
+                  value="upper_body"
+                  className="mt-1 shrink-0 accent-[#7DD3FC]"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#BAE6FD]">
+                    上半身
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
+                    顔・髪・肩まわりが大きく見える構図。アイコン用におすすめです。
+                  </span>
+                </span>
+              </label>
             </div>
+          </div>
+
+          <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
+            <p className="text-sm font-black text-[#F4F1EA]">画像品質</p>
 
             <div className="mt-4 grid gap-3">
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -532,50 +533,44 @@ export default async function CharacterVisualPage({
                           </button>
                         </form>
 
-                        <form action={selectCharacterVisual}>
+                        <Link
+                          href={`/app/characters/${character.id}/visual/icon-crop?imageId=${image.id}`}
+                          className={[
+                            "block w-full rounded-2xl px-4 py-3 text-center text-xs font-black transition",
+                            isIconSelected
+                              ? "border border-[#7DD3FC]/40 bg-[#7DD3FC]/20 text-[#BAE6FD]"
+                              : "border border-white/10 bg-white/[0.04] text-[#F4F1EA] hover:border-[#7DD3FC]/35",
+                          ].join(" ")}
+                        >
+                          {isIconSelected ? "アイコンを再調整" : "アイコンを調整"}
+                        </Link>
+                      </div>
+
+                      <details className="mt-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-3">
+                        <summary className="cursor-pointer text-xs font-black text-red-100">
+                          削除メニューを開く
+                        </summary>
+
+                        <p className="mt-2 text-xs leading-5 text-red-100/80">
+                          この画像を削除します。背景用・アイコン用に選択中の場合は、その設定も解除されます。
+                          消費済みクレジットは返却されません。
+                        </p>
+
+                        <form action={deleteCharacterVisual} className="mt-3">
                           <input
                             type="hidden"
                             name="characterId"
                             value={character.id}
                           />
                           <input type="hidden" name="imageId" value={image.id} />
-                          <input type="hidden" name="purpose" value="icon" />
                           <button
                             type="submit"
-                            className={[
-                              "w-full rounded-2xl px-4 py-3 text-xs font-black transition",
-                              isIconSelected
-                                ? "border border-[#7DD3FC]/40 bg-[#7DD3FC]/20 text-[#BAE6FD]"
-                                : "border border-white/10 bg-white/[0.04] text-[#F4F1EA] hover:border-[#7DD3FC]/35",
-                            ].join(" ")}
+                            className="w-full rounded-2xl border border-red-300/30 bg-red-400/20 px-4 py-3 text-xs font-black text-red-50 transition hover:bg-red-400/30"
                           >
-                            アイコン用にする
+                            この画像を削除する
                           </button>
                         </form>
-                      </div>
-
-                        <details className="mt-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-3">
-                          <summary className="cursor-pointer text-xs font-black text-red-100">
-                            削除メニューを開く
-                          </summary>
-
-                          <p className="mt-2 text-xs leading-5 text-red-100/80">
-                            この画像を削除します。背景用・アイコン用に選択中の場合は、その設定も解除されます。
-                            消費済みクレジットは返却されません。
-                          </p>
-
-                          <form action={deleteCharacterVisual} className="mt-3">
-                            <input type="hidden" name="characterId" value={character.id} />
-                            <input type="hidden" name="imageId" value={image.id} />
-                            <button
-                              type="submit"
-                              className="w-full rounded-2xl border border-red-300/30 bg-red-400/20 px-4 py-3 text-xs font-black text-red-50 transition hover:bg-red-400/30"
-                            >
-                              この画像を削除する
-                            </button>
-                          </form>
-                        </details>
-
+                      </details>
                     </div>
                   </article>
                 );
@@ -588,9 +583,17 @@ export default async function CharacterVisualPage({
           <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
             NEXT
           </p>
-          <h2 className="mt-2 text-xl font-black">キャラクターに会いに行く</h2>
+
+          <h2 className="mt-2 text-xl font-black">
+            {isEncounterCompleted
+              ? "ビジュアル設定を保存する"
+              : "キャラクターに会いに行く"}
+          </h2>
+
           <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-            背景用画像とアイコン用画像を選ぶと、出会いイベントへ進めます。
+            {isEncounterCompleted
+              ? "背景用画像とアイコン用画像の設定を確認して、キャラクター詳細へ戻ります。出会いイベントはもう一度発生しません。"
+              : "背景用画像とアイコン用画像を選ぶと、出会いイベントへ進めます。"}
           </p>
 
           <div className="mt-4 grid gap-3">
@@ -624,22 +627,32 @@ export default async function CharacterVisualPage({
           </div>
 
           {canStartEncounter ? (
-            <form action={startEncounterFromVisual} className="mt-5">
-              <input type="hidden" name="characterId" value={character.id} />
-              <button
-                type="submit"
-                className="w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+            isEncounterCompleted ? (
+              <Link
+                href={`/app/characters/${character.id}`}
+                className="mt-5 block w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
               >
-                キャラクターに会いに行く
-              </button>
-            </form>
+                設定を保存する
+              </Link>
+            ) : (
+              <form action={startEncounterFromVisual} className="mt-5">
+                <input type="hidden" name="characterId" value={character.id} />
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+                >
+                  キャラクターに会いに行く
+                </button>
+              </form>
+            )
           ) : (
             <button
               type="button"
               disabled
               className="mt-5 w-full cursor-not-allowed rounded-2xl bg-white/[0.08] px-5 py-4 text-sm font-black text-[#7D8AA3]"
             >
-              背景用・アイコン用を設定すると進めます
+              背景用・アイコン用を設定すると
+              {isEncounterCompleted ? "保存できます" : "進めます"}
             </button>
           )}
         </section>

@@ -17,6 +17,7 @@ type CharacterRow = {
   final_name: string | null;
   role_name: string | null;
   status: string | null;
+  icon_image_url: string | null;
   created_at: string;
 };
 
@@ -71,7 +72,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
     return {
       planTier,
       limit: 3,
-      label: "Premium Lite",
+      label: "Lite",
     };
   }
 
@@ -98,6 +99,47 @@ function getAvatarText(name: string) {
   }
 
   return trimmedName.slice(0, 1);
+}
+
+function CharacterAvatar({
+  name,
+  imageUrl,
+  isWaitingCharacter,
+}: {
+  name: string;
+  imageUrl: string | null;
+  isWaitingCharacter: boolean;
+}) {
+  const baseClass =
+    "flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-3xl border text-2xl font-black";
+
+  if (imageUrl) {
+    return (
+      <div
+        className={[
+          baseClass,
+          isWaitingCharacter
+            ? "border-white/10 bg-white/[0.04] opacity-70"
+            : "border-[#BEF264]/20 bg-white shadow-lg shadow-[#7DD3FC]/10",
+        ].join(" ")}
+      >
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        baseClass,
+        isWaitingCharacter
+          ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
+          : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
+      ].join(" ")}
+    >
+      {getAvatarText(name)}
+    </div>
+  );
 }
 
 export default async function CharactersPage({
@@ -138,6 +180,7 @@ export default async function CharactersPage({
       final_name,
       role_name,
       status,
+      icon_image_url,
       created_at
     `,
     )
@@ -227,7 +270,7 @@ export default async function CharactersPage({
                 Freeで使うキャラクターは選択済みです
               </p>
               <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-                選ばなかったキャラクターは待機中です。Premium Lite以上で再開できる設計にします。
+                選ばなかったキャラクターは待機中です。Lite以上で再開できる設計にします。
               </p>
             </div>
           ) : null}
@@ -284,16 +327,11 @@ export default async function CharactersPage({
                     ].join(" ")}
                   >
                     <div className="flex items-start gap-4">
-                      <div
-                        className={[
-                          "flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border text-2xl font-black",
-                          isWaitingCharacter
-                            ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
-                            : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
-                        ].join(" ")}
-                      >
-                        {getAvatarText(name)}
-                      </div>
+                      <CharacterAvatar
+                        name={name}
+                        imageUrl={character.icon_image_url}
+                        isWaitingCharacter={isWaitingCharacter}
+                      />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -317,7 +355,7 @@ export default async function CharactersPage({
                         {isWaitingCharacter ? (
                           <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-6 text-[#A7B0C0]">
                             このキャラクターは現在のFreeプランでは待機中です。
-                            Premium Lite以上で再び利用できるようにします。
+                            Lite以上で再び利用できるようにします。
                           </p>
                         ) : null}
 
@@ -389,7 +427,7 @@ export default async function CharactersPage({
               現在のプランでは新しいキャラクターを追加できません。
             </p>
             <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
-              Premium Lite以上で、複数キャラクターやグループチャットを使えるようにする予定です。
+              Lite以上で、複数キャラクターやグループチャットを使えるようにする予定です。
             </p>
           </div>
         ) : null}
