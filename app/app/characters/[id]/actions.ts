@@ -46,13 +46,17 @@ export async function startSingleChat(formData: FormData) {
 
   const { data: character, error: characterError } = await supabase
     .from("characters")
-    .select("id, temporary_name, final_name")
+    .select("id, temporary_name, final_name, status")
     .eq("id", characterId)
     .eq("user_id", user.id)
     .single();
 
   if (characterError || !character) {
     redirect("/app/characters");
+  }
+
+  if (character.status !== "active") {
+    redirect(`/app/characters/${character.id}/encounter`);
   }
 
   const { data: profileData } = await supabase
