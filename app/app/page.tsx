@@ -1,11 +1,210 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "./actions";
 
 type ProfileRow = {
   user_setup_completed: boolean | null;
+  plan: string | null;
+  active_character_id: string | null;
+  character_limit_choice_locked: boolean | null;
 };
+
+type CharacterRow = {
+  id: string;
+  temporary_name: string | null;
+  final_name: string | null;
+  role_name: string | null;
+  status: string | null;
+  icon_image_url: string | null;
+  image_url: string | null;
+  background_image_id: string | null;
+  icon_image_id: string | null;
+  created_at: string;
+};
+
+type ChatThreadRow = {
+  id: string;
+  character_id: string | null;
+  updated_at: string;
+};
+
+type PlanTier = "free" | "premium_lite" | "premium";
+
+type CharacterLimitConfig = {
+  planTier: PlanTier;
+  limit: number;
+  label: string;
+};
+
+function normalizePlan(plan: string | null) {
+  return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function getPlanTier(plan: string | null): PlanTier {
+  const normalizedPlan = normalizePlan(plan);
+
+  if (normalizedPlan.includes("lite")) {
+    return "premium_lite";
+  }
+
+  if (
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  ) {
+    return "premium";
+  }
+
+  return "free";
+}
+
+function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+  const planTier = getPlanTier(plan);
+
+  if (planTier === "premium") {
+    return {
+      planTier,
+      limit: 10,
+      label: "Premium",
+    };
+  }
+
+  if (planTier === "premium_lite") {
+    return {
+      planTier,
+      limit: 3,
+      label: "Lite",
+    };
+  }
+
+  return {
+    planTier,
+    limit: 1,
+    label: "Free",
+  };
+}
+
+function getCharacterName(character: CharacterRow | null) {
+  if (!character) {
+    return "キャラクター";
+  }
+
+  return (
+    character.final_name ||
+    character.temporary_name ||
+    "名前のないキャラクター"
+  );
+}
+
+function getAvatarText(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return "◇";
+  }
+
+  return trimmedName.slice(0, 1);
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function CharacterAvatar({
+  name,
+  imageUrl,
+  sizeClass,
+  roundedClass,
+  textClass,
+}: {
+  name: string;
+  imageUrl: string | null;
+  sizeClass: string;
+  roundedClass: string;
+  textClass: string;
+}) {
+  const baseClass = [
+    "relative shrink-0 overflow-hidden border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.06] to-[#7DD3FC]/20 shadow-lg shadow-[#7DD3FC]/10",
+    sizeClass,
+    roundedClass,
+    textClass,
+  ].join(" ");
+
+  if (imageUrl) {
+    return (
+      <div className={baseClass}>
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        baseClass,
+        "flex items-center justify-center font-black text-[#F4F1EA]",
+      ].join(" ")}
+    >
+      {getAvatarText(name)}
+    </div>
+  );
+}
+
+function getPrimaryAction({
+  character,
+  thread,
+  needsActiveCharacterSelection,
+}: {
+  character: CharacterRow | null;
+  thread: ChatThreadRow | null;
+  needsActiveCharacterSelection: boolean;
+}) {
+  if (needsActiveCharacterSelection) {
+    return {
+      href: "/app/characters/select-active",
+      label: "使うキャラを選ぶ",
+      subLabel: "Freeで話す1人を決める",
+    };
+  }
+
+  if (!character) {
+    return {
+      href: "/app/characters/new",
+      label: "最初のキャラクターを作る",
+      subLabel: "出会いを始める",
+    };
+  }
+
+  if (character.status === "active") {
+    return {
+      href: thread ? `/app/chat/${thread.id}` : `/app/characters/${character.id}`,
+      label: "話しかける",
+      subLabel: "チャットへ戻る",
+    };
+  }
+
+  if (character.background_image_id && character.icon_image_id) {
+    return {
+      href: `/app/characters/${character.id}/encounter`,
+      label: "キャラクターに会いに行く",
+      subLabel: "出会いイベントへ",
+    };
+  }
+
+  return {
+    href: `/app/characters/${character.id}/visual`,
+    label: "姿を決める",
+    subLabel: "ビジュアル設定へ",
+  };
+}
 
 export default async function AppHomePage() {
   const supabase = await createClient();
@@ -14,25 +213,94 @@ export default async function AppHomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let profile: ProfileRow | null = null;
-
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("user_setup_completed")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    profile = profileData as ProfileRow | null;
+  if (!user) {
+    redirect("/login");
   }
 
-  const isUserSetupCompleted = Boolean(profile?.user_setup_completed);
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select(
+      "user_setup_completed, plan, active_character_id, character_limit_choice_locked",
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const profile = (profileData ?? {
+    user_setup_completed: false,
+    plan: "free",
+    active_character_id: null,
+    character_limit_choice_locked: false,
+  }) as ProfileRow;
+
+  const limitConfig = getCharacterLimitConfig(profile.plan);
+  const isFreePlan = limitConfig.planTier === "free";
+  const isUserSetupCompleted = Boolean(profile.user_setup_completed);
+
+  const { data: charactersData } = await supabase
+    .from("characters")
+    .select(
+      `
+      id,
+      temporary_name,
+      final_name,
+      role_name,
+      status,
+      icon_image_url,
+      image_url,
+      background_image_id,
+      icon_image_id,
+      created_at
+    `,
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const characters = (charactersData ?? []) as CharacterRow[];
+  const characterCount = characters.length;
+
+  const { data: threadsData } = await supabase
+    .from("chat_threads")
+    .select("id, character_id, updated_at")
+    .eq("user_id", user.id)
+    .eq("chat_type", "single")
+    .order("updated_at", { ascending: false });
+
+  const threads = (threadsData ?? []) as ChatThreadRow[];
+
+  const activeCharacter = profile.active_character_id
+    ? characters.find((character) => character.id === profile.active_character_id) ??
+      null
+    : null;
+
+  const firstActiveCharacter =
+    characters.find((character) => character.status === "active") ?? null;
+
+  const primaryCharacter =
+    activeCharacter ?? firstActiveCharacter ?? characters[0] ?? null;
+
+  const primaryThread = primaryCharacter
+    ? threads.find((thread) => thread.character_id === primaryCharacter.id) ?? null
+    : null;
+
+  const primaryCharacterName = getCharacterName(primaryCharacter);
+
+  const isOverFreeLimit = isFreePlan && characterCount > limitConfig.limit;
+  const needsActiveCharacterSelection =
+    isOverFreeLimit && !profile.character_limit_choice_locked;
+
+  const isCreateLimitReached = characterCount >= limitConfig.limit;
+
+  const primaryAction = getPrimaryAction({
+    character: primaryCharacter,
+    thread: primaryThread,
+    needsActiveCharacterSelection,
+  });
 
   return (
-    <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
         <header className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold tracking-[0.24em] text-[#FACC15]">
               FevCara
             </p>
@@ -41,14 +309,14 @@ export default async function AppHomePage() {
               あなたが生み出したキャラクターに、今日も会いに行きましょう。
             </p>
 
-            {user?.email ? (
-              <p className="mt-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-[#A7B0C0]">
+            {user.email ? (
+              <p className="mt-3 truncate rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-[#A7B0C0]">
                 ログイン中：{user.email}
               </p>
             ) : null}
           </div>
 
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 text-lg">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 text-lg">
             ✦
           </div>
         </header>
@@ -85,60 +353,213 @@ export default async function AppHomePage() {
           </div>
         ) : null}
 
-        <div
-          className={[
-            "rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30",
-            isUserSetupCompleted ? "mt-8" : "mt-8",
-          ].join(" ")}
-        >
-          <p className="text-sm font-semibold text-[#7DD3FC]">
-            最初のキャラクターを作成
-          </p>
+        <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[#111827]/80 shadow-2xl shadow-black/30">
+          {primaryCharacter ? (
+            <div className="relative aspect-square w-full bg-[#EEF1F4]">
+              {primaryCharacter.image_url ? (
+                <img
+                  src={primaryCharacter.image_url}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-contain object-center"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(190,242,100,0.22),transparent_32%),radial-gradient(circle_at_50%_60%,rgba(125,211,252,0.18),transparent_38%),#111827]" />
+              )}
 
-          <h2 className="mt-3 text-2xl font-black leading-tight">
-            名前のない存在に、
-            <br />
-            姿と言葉を。
-          </h2>
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.10)_28%,rgba(15,23,42,0.58)_64%,rgba(15,23,42,0.92))]" />
 
-          <p className="mt-4 text-sm leading-7 text-[#B8C2D6]">
-            性格、話し方、目の色、服装、祝ってほしい日。
-            あなたの“好き”から、あなただけのAIキャラクターを生み出します。
-          </p>
+              <div className="relative z-10 flex h-full flex-col justify-end p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <CharacterAvatar
+                    name={primaryCharacterName}
+                    imageUrl={primaryCharacter.icon_image_url}
+                    sizeClass="h-16 w-16"
+                    roundedClass="rounded-3xl"
+                    textClass="text-2xl"
+                  />
 
-          <Link
-            href="/app/characters/new"
-            className="mt-6 block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
-          >
-            キャラクターを作成する
-          </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
+                      TODAY&apos;S CHARACTER
+                    </p>
+                    <h2 className="mt-1 break-words text-3xl font-black text-white">
+                      {primaryCharacterName}
+                    </h2>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {primaryCharacter.role_name ? (
+                        <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/15 px-3 py-1 text-xs font-bold text-[#BAE6FD] backdrop-blur">
+                          {primaryCharacter.role_name}
+                        </span>
+                      ) : null}
+
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-bold text-[#F4F1EA] backdrop-blur">
+                        {primaryCharacter.status || "draft"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="rounded-3xl border border-white/10 bg-[#0F172A]/52 p-4 text-sm leading-7 text-[#E2E8F0] shadow-xl shadow-black/20 backdrop-blur-md">
+                  {primaryCharacter.status === "active"
+                    ? "この子は、あなたが戻ってくるのを待っています。前の会話の続きから、また話し始めましょう。"
+                    : "この子はまだ出会いの途中です。姿を決めて、名前を与えて、最初の会話へ進みましょう。"}
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Link
+                    href={primaryAction.href}
+                    className="block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-4 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+                  >
+                    {primaryAction.label}
+                    <span className="mt-1 block text-xs font-bold text-[#17212F]/75">
+                      {primaryAction.subLabel}
+                    </span>
+                  </Link>
+
+                  <Link
+                    href={`/app/characters/${primaryCharacter.id}`}
+                    className="block rounded-2xl border border-white/12 bg-white/[0.10] px-4 py-4 text-center text-sm font-black text-[#F8FAFC] shadow-lg shadow-black/10 backdrop-blur transition hover:bg-white/[0.16]"
+                  >
+                    詳細を見る
+                    <span className="mt-1 block text-xs font-medium text-[#D8DEE9]">
+                      設定・画像
+                    </span>
+                  </Link>
+                </div>
+
+                {primaryThread ? (
+                  <p className="mt-3 text-center text-[11px] font-medium text-[#CBD5E1]">
+                    最終更新：{formatDateTime(primaryThread.updated_at)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="p-5">
+              <p className="text-sm font-semibold text-[#7DD3FC]">
+                最初のキャラクターを作成
+              </p>
+
+              <h2 className="mt-3 text-2xl font-black leading-tight">
+                名前のない存在に、
+                <br />
+                姿と言葉を。
+              </h2>
+
+              <p className="mt-4 text-sm leading-7 text-[#B8C2D6]">
+                性格、話し方、目の色、服装、祝ってほしい日。
+                あなたの“好き”から、あなただけのAIキャラクターを生み出します。
+              </p>
+
+              <Link
+                href="/app/characters/new"
+                className="mt-6 block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+              >
+                キャラクターを作成する
+              </Link>
+            </div>
+          )}
+        </section>
+
+        {needsActiveCharacterSelection ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+            <p className="text-sm font-black text-[#FDE68A]">
+              Freeで使うキャラクターを選んでください
+            </p>
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              現在キャラクターが{characterCount}
+              人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。
+            </p>
+
+            <Link
+              href="/app/characters/select-active"
+              className="mt-4 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-center text-sm font-black text-[#07111F]"
+            >
+              使うキャラを選ぶ
+            </Link>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4">
+            <p className="text-2xl font-black text-[#F4F1EA]">
+              {characterCount}
+              <span className="text-sm text-[#A7B0C0]">
+                {" "}
+                / {limitConfig.limit}
+              </span>
+            </p>
+            <p className="mt-1 text-xs font-bold text-[#D9F99D]">
+              キャラクター
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4">
+            <p className="text-2xl font-black text-[#F4F1EA]">
+              {threads.length}
+            </p>
+            <p className="mt-1 text-xs font-bold text-[#BAE6FD]">チャット</p>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3">
           <Link
             href="/app/chats"
-            className="block rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/15"
+            className="flex items-center justify-between rounded-3xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
           >
-            <p className="text-sm font-black text-[#BAE6FD]">
-              チャット一覧を開く
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
-              最近話したキャラクターとの会話に戻れます。
-              前の相談や物語の続きを開きましょう。
-            </p>
+            <div className="flex items-center gap-4">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7DD3FC]/18 text-xl">
+                💬
+              </span>
+              <span className="text-base font-black text-[#BAE6FD]">
+                チャット一覧
+              </span>
+            </div>
+            <span className="text-xl font-black text-[#7DD3FC]">→</span>
           </Link>
 
           <Link
             href="/app/characters"
-            className="block rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4 transition hover:scale-[1.01] hover:bg-[#BEF264]/15"
+            className="flex items-center justify-between rounded-3xl border border-[#BEF264]/25 bg-[#BEF264]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#BEF264]/18"
           >
-            <p className="text-sm font-black text-[#D9F99D]">
-              キャラクター一覧を見る
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
-              作成済みキャラクターの確認、チャット開始、設定編集ができます。
-            </p>
+            <div className="flex items-center gap-4">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#BEF264]/18 text-xl">
+                ☻
+              </span>
+              <span className="text-base font-black text-[#D9F99D]">
+                キャラクター一覧
+              </span>
+            </div>
+            <span className="text-xl font-black text-[#BEF264]">→</span>
           </Link>
+
+          {!isCreateLimitReached ? (
+            <Link
+              href="/app/characters/new"
+              className="flex items-center justify-between rounded-3xl border border-[#FACC15]/25 bg-[#FACC15]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#FACC15]/18"
+            >
+              <div className="flex items-center gap-4">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FACC15]/18 text-xl">
+                  ✦
+                </span>
+                <span className="text-base font-black text-[#FDE68A]">
+                  新しいキャラクターを作る
+                </span>
+              </div>
+              <span className="text-xl font-black text-[#FACC15]">→</span>
+            </Link>
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm font-semibold text-[#F4F1EA]">
+                現在のプランでは作成上限に達しています
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                {limitConfig.label}プランではキャラクターを
+                {limitConfig.limit}人まで利用できます。
+              </p>
+            </div>
+          )}
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
             <p className="text-sm font-semibold text-[#F4F1EA]">
@@ -147,16 +568,6 @@ export default async function AppHomePage() {
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
               実在人物・既存キャラクター・写真風の生成はできません。
               FevCaraでは安全なイラスト絵柄プリセットを使います。
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-sm font-semibold text-[#F4F1EA]">
-              スマホで会いに行く場所
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-              キャラクターを作成したら、最初は特別な出会いイベントへ。
-              名前を与え、呼び方を決めてから、通常チャットへ進む体験を目指します。
             </p>
           </div>
         </div>
