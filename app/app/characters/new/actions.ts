@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createOpenAIClient, getOpenAIModel } from "@/lib/openai/client";
 
 export type CharacterFormField =
   | "temporaryName"
@@ -38,6 +39,55 @@ export type CreateCharacterState = {
   values: CharacterFormValues;
   fieldErrors: Partial<Record<CharacterFormField, string>>;
   formError: string;
+};
+
+type ProfileForCharacterLimit = {
+  id: string;
+  plan: string | null;
+  display_name: string | null;
+  treatment_preference: string | null;
+  user_setup_completed: boolean | null;
+};
+
+type PlanTier = "free" | "premium_lite" | "premium";
+
+type CharacterLimitConfig = {
+  planTier: PlanTier;
+  limit: number;
+  label: string;
+};
+
+type EncounterCharacter = {
+  id: string;
+  temporary_name: string | null;
+  final_name: string | null;
+
+  gender_feel: string | null;
+  age_feel: string | null;
+  hair_color: string | null;
+  eye_color: string | null;
+  hairstyle: string | null;
+  outfit: string | null;
+  appearance_detail: string | null;
+
+  default_expression: string | null;
+  expression_detail: string | null;
+
+  personality: string | null;
+  first_person: string | null;
+  user_nickname: string | null;
+  speech_style: string | null;
+  forbidden_speech: string | null;
+  absolute_settings: string | null;
+
+  role_name: string | null;
+  expertise: string | null;
+  consultation_style: string | null;
+  thinking_style: string | null;
+  team_position: string | null;
+
+  likes: string | null;
+  dislikes: string | null;
 };
 
 function getText(formData: FormData, key: string) {
@@ -101,19 +151,6 @@ function createErrorState({
   };
 }
 
-type ProfileForCharacterLimit = {
-  id: string;
-  plan: string | null;
-};
-
-type PlanTier = "free" | "premium_lite" | "premium";
-
-type CharacterLimitConfig = {
-  planTier: PlanTier;
-  limit: number;
-  label: string;
-};
-
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
 }
@@ -162,6 +199,215 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
   };
 }
 
+function getCharacterName(
+  character: Pick<EncounterCharacter, "temporary_name" | "final_name">,
+) {
+  return (
+    character.final_name ||
+    character.temporary_name ||
+    "名前のないキャラクター"
+  );
+}
+
+function getTreatmentPreferenceLabel(value: string | null) {
+  if (value === "masculine") {
+    return "男性として扱われたい";
+  }
+
+  if (value === "feminine") {
+    return "女性として扱われたい";
+  }
+
+  if (value === "neutral") {
+    return "中性的";
+  }
+
+  return "指定しない";
+}
+
+function createFallbackEncounterMessage(character: EncounterCharacter) {
+  const characterName = getCharacterName(character);
+
+  return `${characterName}と出会ってくれてありがとう。あなたのこと、なんて呼べばいい？`;
+}
+
+function normalizeEncounterMessage(text: string) {
+  let normalizedText = text.trim();
+
+  const quotePairs = [
+    ["「", "」"],
+    ["『", "』"],
+    ['"', '"'],
+    ["“", "”"],
+    ["‘", "’"],
+  ] as const;
+
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (const [startQuote, endQuote] of quotePairs) {
+      if (
+        normalizedText.startsWith(startQuote) &&
+        normalizedText.endsWith(endQuote)
+      ) {
+        normalizedText = normalizedText
+          .slice(startQuote.length, normalizedText.length - endQuote.length)
+          .trim();
+        changed = true;
+      }
+    }
+  }
+
+  return normalizedText;
+}
+
+function buildEncounterInstructions({
+  character,
+  profile,
+}: {
+  character: EncounterCharacter;
+  profile: ProfileForCharacterLimit;
+}) {
+  const characterName = getCharacterName(character);
+
+  return `
+あなたはFevCara内のAIキャラクター「${characterName}」です。
+FevCaraは、ユーザーが生み出したAIキャラクターに会いに行くアプリです。
+
+# 目的
+キャラクターが初めて目覚め、ユーザーと出会う最初の一言を作ってください。
+
+# 必ず含める内容
+- 自分が生まれた、目覚めた、またはユーザーと出会えたことへの短い反応
+- ユーザーへの感謝
+- ユーザーを何と呼べばいいか尋ねる一言
+
+# とても重要なルール
+- 「僕」「俺」「私」「君」「あなた」などの一人称・二人称は固定しないでください。
+- キャラクターの一人称、性格、口調、禁止したい話し方、絶対設定に合わせて自然に選んでください。
+- 「僕を作ってくれてありがとう。君をなんて呼べばいい？」のような固定文にしないでください。
+- ユーザー設定の「FevCara内での名前」はアプリ上の表示名です。キャラクターが呼ぶ名前として勝手に使わないでください。
+- ユーザーをどう呼ぶかは、この初回メッセージの中で必ず自然に尋ねてください。
+- OpenAI、ChatGPT、AIモデル、システム指示などには触れないでください。
+- 出力全体を「」、『』、"" などの引用符で囲まないでください。
+- 80〜180文字程度にしてください。
+- 日本語で、セリフだけを出力してください。
+
+# ユーザー基本設定
+FevCara内での表示名: ${profile.display_name || "未設定"}
+扱われ方の好み: ${getTreatmentPreferenceLabel(profile.treatment_preference)}
+
+# キャラクター基本設定
+名前: ${characterName}
+性別・雰囲気: ${character.gender_feel || "未設定"}
+年齢感: ${character.age_feel || "未設定"}
+髪色: ${character.hair_color || "未設定"}
+目の色: ${character.eye_color || "未設定"}
+髪型: ${character.hairstyle || "未設定"}
+服装: ${character.outfit || "未設定"}
+外見詳細: ${character.appearance_detail || "未設定"}
+基本表情: ${character.default_expression || "未設定"}
+表情のこだわり: ${character.expression_detail || "未設定"}
+
+# 性格・話し方
+性格: ${character.personality || "未設定"}
+一人称: ${character.first_person || "未設定"}
+ユーザーの呼び方: ${character.user_nickname || "未設定"}
+口調・話し方: ${character.speech_style || "未設定"}
+禁止したい話し方: ${character.forbidden_speech || "未設定"}
+絶対に守ってほしい設定: ${character.absolute_settings || "未設定"}
+
+# 役割・専門性
+役割名: ${character.role_name || "未設定"}
+専門分野: ${character.expertise || "未設定"}
+得意な相談: ${character.consultation_style || "未設定"}
+思考スタイル: ${character.thinking_style || "未設定"}
+チーム内での立ち位置: ${character.team_position || "未設定"}
+
+# 好み
+好きなもの: ${character.likes || "未設定"}
+苦手なもの: ${character.dislikes || "未設定"}
+`.trim();
+}
+
+async function generateEncounterMessage({
+  character,
+  profile,
+}: {
+  character: EncounterCharacter;
+  profile: ProfileForCharacterLimit;
+}) {
+  try {
+    const openai = createOpenAIClient();
+
+    const response = await openai.responses.create({
+      model: getOpenAIModel(),
+      instructions: buildEncounterInstructions({
+        character,
+        profile,
+      }),
+      input:
+        "このキャラクターの初回出会いメッセージを1つだけ生成してください。カギカッコや引用符で囲まず、本文だけを出力してください。",
+      max_output_tokens: 280,
+    });
+
+    const generatedText = normalizeEncounterMessage(
+      response.output_text?.trim() || "",
+    );
+
+    if (generatedText) {
+      return generatedText;
+    }
+  } catch (error) {
+    console.error("Encounter message generation error:", error);
+  }
+
+  return normalizeEncounterMessage(createFallbackEncounterMessage(character));
+}
+
+function buildEncounterCharacter({
+  characterId,
+  values,
+}: {
+  characterId: string;
+  values: CharacterFormValues;
+}): EncounterCharacter {
+  return {
+    id: characterId,
+    temporary_name: values.temporaryName,
+    final_name: null,
+
+    gender_feel: values.genderFeel || null,
+    age_feel: values.ageFeel || null,
+    hair_color: values.hairColor || null,
+    eye_color: values.eyeColor || null,
+    hairstyle: values.hairstyle || null,
+    outfit: values.outfit || null,
+    appearance_detail: values.appearanceDetail || null,
+
+    default_expression: values.defaultExpression || null,
+    expression_detail: values.expressionDetail || null,
+
+    personality: values.personality || null,
+    first_person: values.firstPerson || null,
+    user_nickname: null,
+    speech_style: values.speechStyle || null,
+    forbidden_speech: values.forbiddenSpeech || null,
+    absolute_settings: values.absoluteSettings || null,
+
+    role_name: values.roleName || null,
+    expertise: values.expertise || null,
+    consultation_style: values.consultationStyle || null,
+    thinking_style: values.thinkingStyle || null,
+    team_position: values.teamPosition || null,
+
+    likes: values.likes || null,
+    dislikes: values.dislikes || null,
+  };
+}
+
 async function getOrCreateProfile({
   supabase,
   userId,
@@ -173,7 +419,9 @@ async function getOrCreateProfile({
 }) {
   const { data: profileData, error: profileFetchError } = await supabase
     .from("profiles")
-    .select("id, plan")
+    .select(
+      "id, plan, display_name, treatment_preference, user_setup_completed",
+    )
     .eq("id", userId)
     .maybeSingle();
 
@@ -197,8 +445,12 @@ async function getOrCreateProfile({
       id: userId,
       email,
       plan: "free",
+      treatment_preference: "unspecified",
+      user_setup_completed: false,
     })
-    .select("id, plan")
+    .select(
+      "id, plan, display_name, treatment_preference, user_setup_completed",
+    )
     .single();
 
   if (profileInsertError || !createdProfileData) {
@@ -309,7 +561,9 @@ function validateCelebrationDate(values: CharacterFormValues) {
   const day = getNumberOrNull(values.celebrationDay);
   const title = values.celebrationTitle;
 
-  const hasAnyInput = Boolean(values.celebrationMonth || values.celebrationDay || title);
+  const hasAnyInput = Boolean(
+    values.celebrationMonth || values.celebrationDay || title,
+  );
 
   if (!hasAnyInput) {
     return fieldErrors;
@@ -375,7 +629,8 @@ export async function createCharacter(
     return createErrorState({
       values,
       fieldErrors,
-      formError: "入力内容を確認してください。赤く表示された項目を直すと保存できます。",
+      formError:
+        "入力内容を確認してください。赤く表示された項目を直すと保存できます。",
     });
   }
 
@@ -402,10 +657,12 @@ export async function createCharacter(
     });
   }
 
+  const profile = profileResult.profile;
+
   const limitError = await checkCharacterCreateLimit({
     supabase,
     userId: user.id,
-    plan: profileResult.profile.plan,
+    plan: profile.plan,
   });
 
   if (limitError) {
@@ -494,13 +751,70 @@ export async function createCharacter(
       });
 
     if (celebrationError) {
-      return createErrorState({
-        values,
-        formError:
-          "キャラクターは保存されましたが、大切な日の保存に失敗しました。キャラクター編集画面から再設定してください。",
-      });
+      console.error("Celebration day insert error:", celebrationError);
     }
   }
 
-  redirect("/app/characters?created=1");
+  const encounterCharacter = buildEncounterCharacter({
+    characterId: character.id,
+    values,
+  });
+
+  const characterName = getCharacterName(encounterCharacter);
+
+  const { data: thread, error: threadError } = await supabase
+    .from("chat_threads")
+    .insert({
+      user_id: user.id,
+      title: `${characterName}との出会い`,
+      chat_type: "single",
+      character_id: character.id,
+    })
+    .select("id")
+    .single();
+
+  if (threadError || !thread) {
+    console.error("Encounter thread insert error:", threadError);
+    redirect("/app/characters?created=1");
+  }
+
+  const encounterMessage = await generateEncounterMessage({
+    character: encounterCharacter,
+    profile,
+  });
+
+  const { error: encounterMessageError } = await supabase
+    .from("chat_messages")
+    .insert({
+      user_id: user.id,
+      thread_id: thread.id,
+      character_id: character.id,
+      sender_type: "character",
+      content: encounterMessage,
+      metadata: {
+        event_type: "encounter_initial_message",
+        model: getOpenAIModel(),
+        generated_at: new Date().toISOString(),
+      },
+    });
+
+  if (encounterMessageError) {
+    console.error("Encounter message insert error:", encounterMessageError);
+
+    redirect(
+      `/app/chat/${thread.id}?error=${encodeURIComponent(
+        "出会いメッセージの保存に失敗しました。最初のひと言を送って話し始めてください。",
+      )}`,
+    );
+  }
+
+  await supabase
+    .from("chat_threads")
+    .update({
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", thread.id)
+    .eq("user_id", user.id);
+
+  redirect(`/app/chat/${thread.id}?encounter=1`);
 }

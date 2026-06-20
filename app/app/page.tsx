@@ -4,26 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { logout } from "./actions";
 
 type ProfileRow = {
-  display_name: string | null;
-  treatment_preference: string | null;
   user_setup_completed: boolean | null;
 };
-
-function getTreatmentPreferenceLabel(value: string | null) {
-  if (value === "masculine") {
-    return "男性として扱われたい";
-  }
-
-  if (value === "feminine") {
-    return "女性として扱われたい";
-  }
-
-  if (value === "neutral") {
-    return "中性的";
-  }
-
-  return "指定しない";
-}
 
 export default async function AppHomePage() {
   const supabase = await createClient();
@@ -37,7 +19,7 @@ export default async function AppHomePage() {
   if (user) {
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("display_name, treatment_preference, user_setup_completed")
+      .select("user_setup_completed")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -45,10 +27,6 @@ export default async function AppHomePage() {
   }
 
   const isUserSetupCompleted = Boolean(profile?.user_setup_completed);
-  const displayName = profile?.display_name?.trim() || null;
-  const treatmentPreferenceLabel = getTreatmentPreferenceLabel(
-    profile?.treatment_preference ?? "unspecified",
-  );
 
   return (
     <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -105,27 +83,14 @@ export default async function AppHomePage() {
               ユーザー設定をする
             </Link>
           </div>
-        ) : (
-          <div className="mt-8 rounded-[2rem] border border-[#BEF264]/20 bg-[#BEF264]/10 p-5 shadow-2xl shadow-black/30">
-            <p className="text-sm font-black tracking-[0.16em] text-[#D9F99D]">
-              USER PROFILE
-            </p>
-            <h2 className="mt-3 text-xl font-black">
-              {displayName ? `${displayName}さんの設定` : "ユーザー設定"}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
-              扱われ方の好み：{treatmentPreferenceLabel}
-            </p>
-            <Link
-              href="/app/settings#user-profile"
-              className="mt-4 inline-block text-sm font-bold text-[#BEF264] hover:text-[#D9F99D]"
-            >
-              設定を変更する →
-            </Link>
-          </div>
-        )}
+        ) : null}
 
-        <div className="mt-8 rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
+        <div
+          className={[
+            "rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30",
+            isUserSetupCompleted ? "mt-8" : "mt-8",
+          ].join(" ")}
+        >
           <p className="text-sm font-semibold text-[#7DD3FC]">
             最初のキャラクターを作成
           </p>
@@ -190,8 +155,8 @@ export default async function AppHomePage() {
               スマホで会いに行く場所
             </p>
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-              チャット画面では、キャラクターの立ち絵を背景に薄く表示し、
-              LINEのような自然な会話体験を目指します。
+              キャラクターを作成したら、最初は特別な出会いイベントへ。
+              名前を与え、呼び方を決めてから、通常チャットへ進む体験を目指します。
             </p>
           </div>
         </div>
