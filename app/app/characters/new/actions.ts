@@ -3,22 +3,102 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+export type CharacterFormField =
+  | "temporaryName"
+  | "genderFeel"
+  | "ageFeel"
+  | "hairColor"
+  | "eyeColor"
+  | "hairstyle"
+  | "outfit"
+  | "defaultExpression"
+  | "expressionDetail"
+  | "personality"
+  | "firstPerson"
+  | "speechStyle"
+  | "forbiddenSpeech"
+  | "roleName"
+  | "expertise"
+  | "consultationStyle"
+  | "thinkingStyle"
+  | "teamPosition"
+  | "likes"
+  | "dislikes"
+  | "celebrationMonth"
+  | "celebrationDay"
+  | "celebrationTitle"
+  | "artStyle"
+  | "appearanceDetail"
+  | "absoluteSettings"
+  | "safetyAgreement";
+
+export type CharacterFormValues = Record<CharacterFormField, string>;
+
+export type CreateCharacterState = {
+  values: CharacterFormValues;
+  fieldErrors: Partial<Record<CharacterFormField, string>>;
+  formError: string;
+};
+
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
-function getNumberOrNull(formData: FormData, key: string) {
-  const value = String(formData.get(key) ?? "").trim();
+function getFormValues(formData: FormData): CharacterFormValues {
+  return {
+    temporaryName: getText(formData, "temporaryName"),
+    genderFeel: getText(formData, "genderFeel"),
+    ageFeel: getText(formData, "ageFeel"),
+    hairColor: getText(formData, "hairColor"),
+    eyeColor: getText(formData, "eyeColor"),
+    hairstyle: getText(formData, "hairstyle"),
+    outfit: getText(formData, "outfit"),
+    defaultExpression: getText(formData, "defaultExpression"),
+    expressionDetail: getText(formData, "expressionDetail"),
+    personality: getText(formData, "personality"),
+    firstPerson: getText(formData, "firstPerson"),
+    speechStyle: getText(formData, "speechStyle"),
+    forbiddenSpeech: getText(formData, "forbiddenSpeech"),
+    roleName: getText(formData, "roleName"),
+    expertise: getText(formData, "expertise"),
+    consultationStyle: getText(formData, "consultationStyle"),
+    thinkingStyle: getText(formData, "thinkingStyle"),
+    teamPosition: getText(formData, "teamPosition"),
+    likes: getText(formData, "likes"),
+    dislikes: getText(formData, "dislikes"),
+    celebrationMonth: getText(formData, "celebrationMonth"),
+    celebrationDay: getText(formData, "celebrationDay"),
+    celebrationTitle: getText(formData, "celebrationTitle"),
+    artStyle: getText(formData, "artStyle") || "midnight_anime",
+    appearanceDetail: getText(formData, "appearanceDetail"),
+    absoluteSettings: getText(formData, "absoluteSettings"),
+    safetyAgreement: getText(formData, "safetyAgreement"),
+  };
+}
+
+function getNumberOrNull(value: string) {
   if (!value) return null;
 
   const numberValue = Number(value);
-  if (Number.isNaN(numberValue)) return null;
+  if (Number.isNaN(numberValue) || !Number.isInteger(numberValue)) return null;
 
   return numberValue;
 }
 
-function redirectWithError(message: string): never {
-  redirect(`/app/characters/new?error=${encodeURIComponent(message)}`);
+function createErrorState({
+  values,
+  fieldErrors = {},
+  formError,
+}: {
+  values: CharacterFormValues;
+  fieldErrors?: Partial<Record<CharacterFormField, string>>;
+  formError: string;
+}): CreateCharacterState {
+  return {
+    values,
+    fieldErrors,
+    formError,
+  };
 }
 
 type ProfileForCharacterLimit = {
@@ -98,11 +178,17 @@ async function getOrCreateProfile({
     .maybeSingle();
 
   if (profileFetchError) {
-    redirectWithError("プロフィール情報の取得に失敗しました。");
+    return {
+      profile: null,
+      error: "プロフィール情報の取得に失敗しました。",
+    };
   }
 
   if (profileData) {
-    return profileData as ProfileForCharacterLimit;
+    return {
+      profile: profileData as ProfileForCharacterLimit,
+      error: null,
+    };
   }
 
   const { data: createdProfileData, error: profileInsertError } = await supabase
@@ -116,10 +202,16 @@ async function getOrCreateProfile({
     .single();
 
   if (profileInsertError || !createdProfileData) {
-    redirectWithError("プロフィールの作成に失敗しました。");
+    return {
+      profile: null,
+      error: "プロフィールの作成に失敗しました。",
+    };
   }
 
-  return createdProfileData as ProfileForCharacterLimit;
+  return {
+    profile: createdProfileData as ProfileForCharacterLimit,
+    error: null,
+  };
 }
 
 async function checkCharacterCreateLimit({
@@ -139,24 +231,154 @@ async function checkCharacterCreateLimit({
     .eq("user_id", userId);
 
   if (countError) {
-    redirectWithError("キャラクター数の確認に失敗しました。");
+    return "キャラクター数の確認に失敗しました。";
   }
 
   const currentCount = count ?? 0;
 
   if (currentCount >= limitConfig.limit) {
-    redirectWithError(
-      `${limitConfig.label}プランではキャラクターを${limitConfig.limit}人まで作成できます。現在 ${currentCount} / ${limitConfig.limit} 人です。`,
-    );
+    return `${limitConfig.label}プランではキャラクターを${limitConfig.limit}人まで作成できます。現在 ${currentCount} / ${limitConfig.limit} 人です。`;
   }
 
-  return {
-    currentCount,
-    ...limitConfig,
-  };
+  return null;
 }
 
-export async function createCharacter(formData: FormData) {
+function validateOriginalCharacterPolicy(values: CharacterFormValues) {
+  const fieldErrors: Partial<Record<CharacterFormField, string>> = {};
+
+  const policyCheckFields: CharacterFormField[] = [
+    "temporaryName",
+    "genderFeel",
+    "ageFeel",
+    "hairColor",
+    "eyeColor",
+    "hairstyle",
+    "outfit",
+    "defaultExpression",
+    "expressionDetail",
+    "appearanceDetail",
+    "absoluteSettings",
+  ];
+
+  const blockedTerms = [
+    "実在人物",
+    "実在の人物",
+    "有名人",
+    "芸能人",
+    "俳優",
+    "女優",
+    "配信者",
+    "vtuber",
+    "vチューバー",
+    "既存キャラ",
+    "版権",
+    "著作権キャラ",
+    "写真風",
+    "フォトリアル",
+    "実写",
+    "リアル系",
+    "特定作品風",
+    "特定作家風",
+    "ジブリ風",
+    "ディズニー風",
+    "ピクサー風",
+    "新海誠風",
+    "宮崎駿風",
+  ];
+
+  for (const fieldName of policyCheckFields) {
+    const fieldValue = values[fieldName].toLowerCase();
+
+    const matchedTerm = blockedTerms.find((term) =>
+      fieldValue.includes(term.toLowerCase()),
+    );
+
+    if (matchedTerm) {
+      fieldErrors[fieldName] =
+        `「${matchedTerm}」に近い指定は使えません。オリジナルキャラクターとして設定してください。`;
+    }
+  }
+
+  return fieldErrors;
+}
+
+function validateCelebrationDate(values: CharacterFormValues) {
+  const fieldErrors: Partial<Record<CharacterFormField, string>> = {};
+
+  const month = getNumberOrNull(values.celebrationMonth);
+  const day = getNumberOrNull(values.celebrationDay);
+  const title = values.celebrationTitle;
+
+  const hasAnyInput = Boolean(values.celebrationMonth || values.celebrationDay || title);
+
+  if (!hasAnyInput) {
+    return fieldErrors;
+  }
+
+  if (!month) {
+    fieldErrors.celebrationMonth = "月を入力してください。";
+  }
+
+  if (!day) {
+    fieldErrors.celebrationDay = "日を入力してください。";
+  }
+
+  if (!title) {
+    fieldErrors.celebrationTitle = "何の日かを入力してください。";
+  }
+
+  if (!month || !day || !title) {
+    return fieldErrors;
+  }
+
+  if (month < 1 || month > 12) {
+    fieldErrors.celebrationMonth = "月は1〜12で入力してください。";
+  }
+
+  if (day < 1 || day > 31) {
+    fieldErrors.celebrationDay = "日付は1〜31で入力してください。";
+  }
+
+  if (fieldErrors.celebrationMonth || fieldErrors.celebrationDay) {
+    return fieldErrors;
+  }
+
+  const date = new Date(2024, month - 1, day);
+
+  if (date.getMonth() !== month - 1 || date.getDate() !== day) {
+    fieldErrors.celebrationMonth = "実在する日付で入力してください。";
+    fieldErrors.celebrationDay = "実在する日付で入力してください。";
+  }
+
+  return fieldErrors;
+}
+
+export async function createCharacter(
+  _previousState: CreateCharacterState,
+  formData: FormData,
+): Promise<CreateCharacterState> {
+  const values = getFormValues(formData);
+  const fieldErrors: Partial<Record<CharacterFormField, string>> = {};
+
+  if (!values.temporaryName) {
+    fieldErrors.temporaryName = "キャラクターの仮名を入力してください。";
+  }
+
+  if (values.safetyAgreement !== "agreed") {
+    fieldErrors.safetyAgreement = "安全ルールを確認してください。";
+  }
+
+  Object.assign(fieldErrors, validateOriginalCharacterPolicy(values));
+  Object.assign(fieldErrors, validateCelebrationDate(values));
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return createErrorState({
+      values,
+      fieldErrors,
+      formError: "入力内容を確認してください。赤く表示された項目を直すと保存できます。",
+    });
+  }
+
   const supabase = await createClient();
 
   const {
@@ -167,69 +389,82 @@ export async function createCharacter(formData: FormData) {
     redirect("/login");
   }
 
-  const temporaryName = getText(formData, "temporaryName");
-  const artStyleSlug = getText(formData, "artStyle") || "midnight_anime";
-
-  if (!temporaryName) {
-    redirectWithError("キャラクターの仮名を入力してください。");
-  }
-
-  const profile = await getOrCreateProfile({
+  const profileResult = await getOrCreateProfile({
     supabase,
     userId: user.id,
     email: user.email,
   });
 
-  await checkCharacterCreateLimit({
+  if (profileResult.error || !profileResult.profile) {
+    return createErrorState({
+      values,
+      formError: profileResult.error ?? "プロフィール情報の確認に失敗しました。",
+    });
+  }
+
+  const limitError = await checkCharacterCreateLimit({
     supabase,
     userId: user.id,
-    plan: profile.plan,
+    plan: profileResult.profile.plan,
   });
+
+  if (limitError) {
+    return createErrorState({
+      values,
+      formError: limitError,
+    });
+  }
 
   const { data: artStyle, error: artStyleError } = await supabase
     .from("art_style_presets")
     .select("id")
-    .eq("slug", artStyleSlug)
+    .eq("slug", values.artStyle || "midnight_anime")
     .eq("is_active", true)
     .single();
 
   if (artStyleError || !artStyle) {
-    redirectWithError("絵柄プリセットの取得に失敗しました。");
+    return createErrorState({
+      values,
+      fieldErrors: {
+        artStyle: "絵柄プリセットを選び直してください。",
+      },
+      formError: "絵柄プリセットの取得に失敗しました。",
+    });
   }
 
   const { data: character, error: characterError } = await supabase
     .from("characters")
     .insert({
       user_id: user.id,
-      temporary_name: temporaryName,
+      temporary_name: values.temporaryName,
       final_name: null,
 
-      gender_feel: getText(formData, "genderFeel") || null,
-      age_feel: getText(formData, "ageFeel") || null,
-      hair_color: getText(formData, "hairColor") || null,
-      eye_color: getText(formData, "eyeColor") || null,
-      hairstyle: getText(formData, "hairstyle") || null,
-      outfit: getText(formData, "outfit") || null,
-      appearance_detail: getText(formData, "appearanceDetail") || null,
+      gender_feel: values.genderFeel || null,
+      age_feel: values.ageFeel || null,
+      hair_color: values.hairColor || null,
+      eye_color: values.eyeColor || null,
+      hairstyle: values.hairstyle || null,
+      outfit: values.outfit || null,
+      appearance_detail: values.appearanceDetail || null,
 
-      default_expression: getText(formData, "defaultExpression") || null,
-      expression_detail: getText(formData, "expressionDetail") || null,
+      default_expression: values.defaultExpression || null,
+      expression_detail: values.expressionDetail || null,
 
-      personality: getText(formData, "personality") || null,
-      first_person: getText(formData, "firstPerson") || null,
-      user_nickname: getText(formData, "userNickname") || null,
-      speech_style: getText(formData, "speechStyle") || null,
-      forbidden_speech: getText(formData, "forbiddenSpeech") || null,
-      absolute_settings: getText(formData, "absoluteSettings") || null,
+      personality: values.personality || null,
+      first_person: values.firstPerson || null,
+      user_nickname: null,
+      speech_style: values.speechStyle || null,
+      forbidden_speech: values.forbiddenSpeech || null,
+      absolute_settings: values.absoluteSettings || null,
 
-      role_name: getText(formData, "roleName") || null,
-      expertise: getText(formData, "expertise") || null,
-      consultation_style: getText(formData, "consultationStyle") || null,
-      thinking_style: getText(formData, "thinkingStyle") || null,
-      team_position: getText(formData, "teamPosition") || null,
+      role_name: values.roleName || null,
+      expertise: values.expertise || null,
+      consultation_style: values.consultationStyle || null,
+      thinking_style: values.thinkingStyle || null,
+      team_position: values.teamPosition || null,
 
-      likes: getText(formData, "likes") || null,
-      dislikes: getText(formData, "dislikes") || null,
+      likes: values.likes || null,
+      dislikes: values.dislikes || null,
 
       art_style_preset_id: artStyle.id,
       status: "draft",
@@ -238,14 +473,16 @@ export async function createCharacter(formData: FormData) {
     .single();
 
   if (characterError || !character) {
-    redirectWithError("キャラクターの保存に失敗しました。");
+    return createErrorState({
+      values,
+      formError: "キャラクターの保存に失敗しました。",
+    });
   }
 
-  const celebrationMonth = getNumberOrNull(formData, "celebrationMonth");
-  const celebrationDay = getNumberOrNull(formData, "celebrationDay");
-  const celebrationTitle = getText(formData, "celebrationTitle");
+  const celebrationMonth = getNumberOrNull(values.celebrationMonth);
+  const celebrationDay = getNumberOrNull(values.celebrationDay);
 
-  if (celebrationMonth && celebrationDay && celebrationTitle) {
+  if (celebrationMonth && celebrationDay && values.celebrationTitle) {
     const { error: celebrationError } = await supabase
       .from("celebration_days")
       .insert({
@@ -253,11 +490,15 @@ export async function createCharacter(formData: FormData) {
         character_id: character.id,
         month: celebrationMonth,
         day: celebrationDay,
-        title: celebrationTitle,
+        title: values.celebrationTitle,
       });
 
     if (celebrationError) {
-      redirectWithError("大切な日の保存に失敗しました。");
+      return createErrorState({
+        values,
+        formError:
+          "キャラクターは保存されましたが、大切な日の保存に失敗しました。キャラクター編集画面から再設定してください。",
+      });
     }
   }
 
