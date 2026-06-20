@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { generateAndStoreCharacterImage } from "@/lib/fevcara/characterImage";
 
 export type CharacterFormField =
   | "temporaryName"
@@ -51,6 +52,12 @@ type CharacterLimitConfig = {
   planTier: PlanTier;
   limit: number;
   label: string;
+};
+
+type ArtStyleRow = {
+  id: string;
+  name: string | null;
+  description: string | null;
 };
 
 function getText(formData: FormData, key: string) {
@@ -357,6 +364,10 @@ function validateCelebrationDate(values: CharacterFormValues) {
   return fieldErrors;
 }
 
+function getCharacterDisplayName(values: CharacterFormValues) {
+  return values.temporaryName || "名前のないキャラクター";
+}
+
 export async function createCharacter(
   _previousState: CreateCharacterState,
   formData: FormData,
@@ -420,12 +431,14 @@ export async function createCharacter(
     });
   }
 
-  const { data: artStyle, error: artStyleError } = await supabase
+  const { data: artStyleData, error: artStyleError } = await supabase
     .from("art_style_presets")
-    .select("id")
+    .select("id, name, description")
     .eq("slug", values.artStyle || "midnight_anime")
     .eq("is_active", true)
     .single();
+
+  const artStyle = artStyleData as ArtStyleRow | null;
 
   if (artStyleError || !artStyle) {
     return createErrorState({
@@ -502,6 +515,16 @@ export async function createCharacter(
       console.error("Celebration day insert error:", celebrationError);
     }
   }
+
+  await generateAndStoreCharacterImage({
+    supabase,
+    userId: user.id,
+    characterId: character.id,
+    characterName: getCharacterDisplayName(values),
+    artStyleName: artStyle.name,
+    artStyleDescription: artStyle.description,
+    values,
+  });
 
   redirect(`/app/characters/${character.id}/encounter`);
 }

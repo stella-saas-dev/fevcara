@@ -8,6 +8,7 @@ type EncounterEventProps = {
   initialCharacterName: string;
   avatarText: string;
   firstPerson: string | null;
+  characterImageUrl: string | null;
   error?: string;
 };
 
@@ -26,6 +27,7 @@ export function EncounterEvent({
   initialCharacterName,
   avatarText,
   firstPerson,
+  characterImageUrl,
   error,
 }: EncounterEventProps) {
   const [step, setStep] = useState<"name" | "nickname">("name");
@@ -34,7 +36,8 @@ export function EncounterEvent({
 
   const selfName = useMemo(() => getFirstPerson(firstPerson), [firstPerson]);
   const canGiveName = finalName.trim().length > 0;
-  const canComplete = finalName.trim().length > 0 && userNickname.trim().length > 0;
+  const canComplete =
+    finalName.trim().length > 0 && userNickname.trim().length > 0;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#F7F3E8] px-5 py-8 text-[#111827]">
@@ -69,6 +72,16 @@ export function EncounterEvent({
               0 0 160px rgba(125, 211, 252, 0.34);
           }
         }
+
+        @keyframes encounterImageFloat {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-6px);
+          }
+        }
       `}</style>
 
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
@@ -77,13 +90,29 @@ export function EncounterEvent({
 
           <div className="relative">
             <div
-              className="mx-auto flex h-40 w-40 items-center justify-center rounded-[3rem] border border-white/80 bg-gradient-to-br from-white via-[#EFF6FF] to-[#FEF3C7] text-6xl font-black text-[#0B1020]"
+              className={[
+                "mx-auto flex items-center justify-center overflow-hidden border border-white/80 bg-gradient-to-br from-white via-[#EFF6FF] to-[#FEF3C7] text-6xl font-black text-[#0B1020]",
+                characterImageUrl
+                  ? "h-72 w-72 rounded-[3rem]"
+                  : "h-40 w-40 rounded-[3rem]",
+              ].join(" ")}
               style={{
                 animation:
                   "encounterFadeIn 2200ms ease-out both, encounterGlow 4200ms ease-in-out infinite",
               }}
             >
-              {avatarText}
+              {characterImageUrl ? (
+                <img
+                  src={characterImageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{
+                    animation: "encounterImageFloat 5200ms ease-in-out infinite",
+                  }}
+                />
+              ) : (
+                avatarText
+              )}
             </div>
 
             <div className="mt-8 rounded-[2rem] border border-[#0B1020]/10 bg-white/80 p-5 shadow-xl shadow-[#CBD5E1]/50">
@@ -134,7 +163,11 @@ export function EncounterEvent({
 
                   <form action={completeEncounter} className="mt-6">
                     <input type="hidden" name="characterId" value={characterId} />
-                    <input type="hidden" name="finalName" value={finalName.trim()} />
+                    <input
+                      type="hidden"
+                      name="finalName"
+                      value={finalName.trim()}
+                    />
 
                     <label className="block">
                       <span className="sr-only">呼び名</span>

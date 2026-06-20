@@ -19,6 +19,7 @@ type CharacterRow = {
   gender_feel: string | null;
   default_expression: string | null;
   status: string | null;
+  image_url: string | null;
 };
 
 function getCharacterName(character: CharacterRow) {
@@ -66,7 +67,8 @@ export default async function CharacterEncounterPage({
       first_person,
       gender_feel,
       default_expression,
-      status
+      status,
+      image_url
     `,
     )
     .eq("id", id)
@@ -107,6 +109,7 @@ export default async function CharacterEncounterPage({
       initialCharacterName={characterName}
       avatarText={avatarText}
       firstPerson={character.first_person}
+      characterImageUrl={character.image_url}
       error={query.error}
     />
   );
