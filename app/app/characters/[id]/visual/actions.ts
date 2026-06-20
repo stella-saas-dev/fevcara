@@ -84,13 +84,22 @@ export async function generateCharacterVisual(formData: FormData) {
   const artStyleSlug = getText(formData, "artStyle");
   const requestedQuality = getText(formData, "imageQuality");
   const requestedFraming = getText(formData, "imageFraming");
+  const backgroundPrompt = getText(formData, "backgroundPrompt");
 
   if (!characterId) {
     redirect("/app/characters");
   }
 
+  if (backgroundPrompt.length > 500) {
+    redirectWithError(
+      characterId,
+      "背景・シーン設定は500文字以内で入力してください。",
+    );
+  }
+
   const imageQuality: CharacterImageQuality =
     requestedQuality === "high" ? "high" : "medium";
+
   const imageFraming = getImageFraming(requestedFraming);
 
   const { supabase, user } = await getAuthenticatedUser();
@@ -135,6 +144,7 @@ export async function generateCharacterVisual(formData: FormData) {
   }
 
   const creditCost = getCreditCost(imageQuality);
+
   const balance = await getImageCreditBalance({
     supabase,
     userId: user.id,
@@ -210,6 +220,7 @@ export async function generateCharacterVisual(formData: FormData) {
       imageQuality,
       imageFraming,
       creditCost,
+      backgroundPrompt,
     });
   } catch (error) {
     console.error("Character visual generation failed:", error);
@@ -556,7 +567,10 @@ export async function saveCroppedCharacterIcon(formData: FormData) {
     });
 
   if (uploadError) {
-    redirectWithError(characterId, "切り抜きアイコンのアップロードに失敗しました。");
+    redirectWithError(
+      characterId,
+      "切り抜きアイコンのアップロードに失敗しました。",
+    );
   }
 
   const { data: publicUrlData } = supabase.storage

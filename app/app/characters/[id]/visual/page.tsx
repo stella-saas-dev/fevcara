@@ -296,7 +296,8 @@ export default async function CharacterVisualPage({
           </p>
           <h2 className="mt-2 text-xl font-black">絵柄を選んで生成する</h2>
           <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-            背景は白で統一されます。生成後に、背景用とアイコン用をそれぞれ選べます。
+            絵柄と背景を指定して、キャラクター画像を生成します。
+            生成後に、背景用とアイコン用をそれぞれ選べます。
           </p>
 
           <div className="mt-5 grid gap-3">
@@ -338,6 +339,36 @@ export default async function CharacterVisualPage({
                 </div>
               </label>
             ))}
+          </div>
+
+          <div className="mt-5 rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4">
+            <label className="block">
+              <span className="text-sm font-black text-[#BAE6FD]">
+                背景・シーン設定
+              </span>
+
+              <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+                キャラクターの後ろに描きたい背景を指定できます。
+                未入力の場合は、キャラクターが見やすいシンプルな背景で生成します。
+              </p>
+
+              <textarea
+                name="backgroundPrompt"
+                rows={4}
+                maxLength={500}
+                placeholder="例：星空の下、淡い月明かりが差す静かな屋上。背景は幻想的で、キャラクターの表情が見やすい構図。"
+                className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+              />
+            </label>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] leading-5 text-[#A7B0C0]">
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                星空、海辺、森、教室、部屋、街角など
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                実在人物・既存作品風・写真風は指定不可
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">

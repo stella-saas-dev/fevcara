@@ -47,6 +47,7 @@ type GenerateAndStoreCharacterImageArgs = {
   imageQuality: CharacterImageQuality;
   imageFraming: CharacterImageFraming;
   creditCost: number;
+  backgroundPrompt?: string;
 };
 
 function cleanPromptValue(value: string | null | undefined) {
@@ -54,6 +55,16 @@ function cleanPromptValue(value: string | null | undefined) {
 
   if (!trimmed) {
     return "not specified";
+  }
+
+  return trimmed.replace(/\s+/g, " ");
+}
+
+function cleanLongPromptValue(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+
+  if (!trimmed) {
+    return "";
   }
 
   return trimmed.replace(/\s+/g, " ");
@@ -80,8 +91,9 @@ Composition rules:
 - Keep the character centered in the square canvas.
 - Do not draw a tiny full-body figure.
 - Do not crop off the top of the head.
-- Leave enough clean white margin around the character for later icon cropping.
+- Leave enough clean visual margin around the character for later icon cropping.
 - Make the expression and face readable at small sizes.
+- The background may be visible, but it must not overpower the face or silhouette.
 `.trim();
   }
 
@@ -95,9 +107,45 @@ Composition rules:
 - Do not crop off the head, hands, legs, feet, shoes, or outfit edges.
 - Keep the full silhouette readable.
 - Center the character in the square canvas.
-- Leave clean white margin around the character.
-- This image should work well as an encounter image and a chat background.
+- Leave clean visual margin around the character.
+- This image should work well as an encounter image, profile card image, and chat background.
 - The character may be standing, lightly posing, or calmly floating only if it matches the character.
+- The background may be detailed, but it must not hide the character.
+`.trim();
+}
+
+function getBackgroundInstruction(backgroundPrompt?: string) {
+  const safeBackgroundPrompt = cleanLongPromptValue(backgroundPrompt);
+
+  if (safeBackgroundPrompt) {
+    return `
+Background / Scene:
+Draw the character in the following original background or scene:
+${safeBackgroundPrompt}
+
+Background rules:
+- The background must support the character's atmosphere.
+- Keep the character clearly visible as the main subject.
+- Do not hide the face, hair, outfit, hands, feet, or silhouette.
+- Keep enough separation between the character and the background.
+- The background should be illustrated, not photorealistic.
+- Do not reference existing copyrighted works, real people, celebrities, specific artists, studios, anime titles, game titles, or franchises.
+- Do not include text, logos, watermarks, signs with readable writing, UI, posters, or brand marks.
+`.trim();
+  }
+
+  return `
+Background / Scene:
+Use a simple original illustrated background that matches the character.
+
+Background rules:
+- Do not force a plain white background.
+- The background may include soft colors, abstract shapes, light gradients, simple atmospheric space, or a subtle fantasy-like environment.
+- Keep the character clearly visible as the main subject.
+- Do not hide the face, hair, outfit, hands, feet, or silhouette.
+- Keep enough separation between the character and the background.
+- The background should be illustrated, not photorealistic.
+- Do not include text, logos, watermarks, signs with readable writing, UI, posters, or brand marks.
 `.trim();
 }
 
@@ -106,11 +154,13 @@ function buildCharacterImagePrompt({
   artStyle,
   imageQuality,
   imageFraming,
+  backgroundPrompt,
 }: {
   character: CharacterForImageGeneration;
   artStyle: ArtStyleForImageGeneration;
   imageQuality: CharacterImageQuality;
   imageFraming: CharacterImageFraming;
+  backgroundPrompt?: string;
 }) {
   const characterName = getCharacterDisplayName(character);
 
@@ -119,22 +169,27 @@ Create a square 1:1 original fictional character illustration for FevCara, a cha
 
 Core rules:
 - Show one original character only.
-- Use a clean pure white or warm off-white background.
-- No scenery, no room, no landscape, no text, no logo, no watermark, no UI.
 - Non-photorealistic illustration only.
 - Do not imitate any existing copyrighted character, real person, celebrity, influencer, artist, studio, anime title, game title, or specific franchise.
 - Do not generate photorealistic, realistic, live-action, or cosplay imagery.
 - Do not include sexualized content.
 - Do not include gore or graphic violence.
+- Do not include text, logo, watermark, UI, readable signs, brand marks, or captions.
 - Center the character clearly.
 - Keep the silhouette readable.
-- The background must stay white and uncluttered.
+- The character must remain the main subject even when a background is included.
 - Follow the selected composition rules exactly.
 
 ${getFramingPrompt(imageFraming)}
 
+${getBackgroundInstruction(backgroundPrompt)}
+
 Image quality direction:
-${imageQuality === "high" ? "Extra polished, highly refined, more detailed rendering, premium finish." : "Polished medium-detail rendering, clean mobile-app friendly finish."}
+${
+  imageQuality === "high"
+    ? "Extra polished, highly refined, more detailed rendering, premium finish."
+    : "Polished medium-detail rendering, clean mobile-app friendly finish."
+}
 
 Character name:
 ${cleanPromptValue(characterName)}
@@ -168,7 +223,7 @@ Character design notes:
 - Absolute settings: ${cleanPromptValue(character.absolute_settings)}
 
 Final image:
-A beautiful original character illustration, clean white background, refined colors, appealing face, expressive design, high-quality mobile app character art, no text.
+A beautiful original character illustration, square 1:1 composition, refined colors, appealing face, expressive design, high-quality mobile app character art, character clearly visible, no text.
 `.trim();
 }
 
@@ -180,12 +235,14 @@ export async function generateAndStoreCharacterImage({
   imageQuality,
   imageFraming,
   creditCost,
+  backgroundPrompt,
 }: GenerateAndStoreCharacterImageArgs) {
   const prompt = buildCharacterImagePrompt({
     character,
     artStyle,
     imageQuality,
     imageFraming,
+    backgroundPrompt,
   });
 
   const imageId = randomUUID();

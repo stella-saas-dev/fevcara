@@ -206,6 +206,46 @@ function getPrimaryAction({
   };
 }
 
+function getHomeReasonText({
+  character,
+  thread,
+  isFreePlan,
+  needsActiveCharacterSelection,
+  activeCharacterCount,
+}: {
+  character: CharacterRow | null;
+  thread: ChatThreadRow | null;
+  isFreePlan: boolean;
+  needsActiveCharacterSelection: boolean;
+  activeCharacterCount: number;
+}) {
+  if (needsActiveCharacterSelection) {
+    return "Freeプランでは、まず話せるキャラクターを1人選ぶ必要があります。選んだ子がホームに表示されます。";
+  }
+
+  if (!character) {
+    return "まだキャラクターはいません。最初のひとりを作って、出会いを始めましょう。";
+  }
+
+  if (character.status !== "active") {
+    return "この子はまだ出会いの途中です。姿を決めて、名前を与えて、最初の会話へ進みましょう。";
+  }
+
+  if (isFreePlan) {
+    return "Freeプランで今話せるキャラクターです。今日もこの子があなたを待っています。";
+  }
+
+  if (!thread) {
+    return "まだ会話がないキャラクターです。最初のひと言を送って、この子との時間を始めましょう。";
+  }
+
+  if (activeCharacterCount >= 2) {
+    return "最近あまり話していないキャラクターを優先して表示しています。今日はこの子に会いに行きませんか。";
+  }
+
+  return "この子は、あなたが戻ってくるのを待っています。前の会話の続きから、また話し始めましょう。";
+}
+
 export default async function AppHomePage() {
   const supabase = await createClient();
 
@@ -233,7 +273,7 @@ export default async function AppHomePage() {
   }) as ProfileRow;
 
   const limitConfig = getCharacterLimitConfig(profile.plan);
-  const isFreePlan = limitConfig.planTier === "free";
+  const isCurrentFreePlan = limitConfig.planTier === "free";
   const isUserSetupCompleted = Boolean(profile.user_setup_completed);
 
   const { data: charactersData } = await supabase
@@ -267,24 +307,76 @@ export default async function AppHomePage() {
 
   const threads = (threadsData ?? []) as ChatThreadRow[];
 
+  const latestThreadByCharacterId = new Map<string, ChatThreadRow>();
+
+  threads.forEach((thread) => {
+    if (!thread.character_id) {
+      return;
+    }
+
+    if (!latestThreadByCharacterId.has(thread.character_id)) {
+      latestThreadByCharacterId.set(thread.character_id, thread);
+    }
+  });
+
+  const activeCharacters = characters.filter(
+    (character) => character.status === "active",
+  );
+
   const activeCharacter = profile.active_character_id
     ? characters.find((character) => character.id === profile.active_character_id) ??
       null
     : null;
 
-  const firstActiveCharacter =
-    characters.find((character) => character.status === "active") ?? null;
+  const paidRecommendedActiveCharacter =
+    activeCharacters
+      .slice()
+      .sort((a, b) => {
+        const aThread = latestThreadByCharacterId.get(a.id) ?? null;
+        const bThread = latestThreadByCharacterId.get(b.id) ?? null;
 
-  const primaryCharacter =
-    activeCharacter ?? firstActiveCharacter ?? characters[0] ?? null;
+        if (!aThread && bThread) {
+          return -1;
+        }
+
+        if (aThread && !bThread) {
+          return 1;
+        }
+
+        if (!aThread && !bThread) {
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+
+        const aUpdatedTime = aThread
+          ? new Date(aThread.updated_at).getTime()
+          : Number.POSITIVE_INFINITY;
+
+        const bUpdatedTime = bThread
+          ? new Date(bThread.updated_at).getTime()
+          : Number.POSITIVE_INFINITY;
+
+        return aUpdatedTime - bUpdatedTime;
+      })[0] ?? null;
+
+  const newestDraftOrAnyCharacter = characters[0] ?? null;
+
+  const primaryCharacter = isCurrentFreePlan
+    ? activeCharacter ??
+      activeCharacters[0] ??
+      newestDraftOrAnyCharacter
+    : paidRecommendedActiveCharacter ?? newestDraftOrAnyCharacter;
 
   const primaryThread = primaryCharacter
-    ? threads.find((thread) => thread.character_id === primaryCharacter.id) ?? null
+    ? latestThreadByCharacterId.get(primaryCharacter.id) ?? null
     : null;
 
   const primaryCharacterName = getCharacterName(primaryCharacter);
 
-  const isOverFreeLimit = isFreePlan && characterCount > limitConfig.limit;
+  const isOverFreeLimit =
+    isCurrentFreePlan && characterCount > limitConfig.limit;
+
   const needsActiveCharacterSelection =
     isOverFreeLimit && !profile.character_limit_choice_locked;
 
@@ -294,6 +386,14 @@ export default async function AppHomePage() {
     character: primaryCharacter,
     thread: primaryThread,
     needsActiveCharacterSelection,
+  });
+
+  const homeReasonText = getHomeReasonText({
+    character: primaryCharacter,
+    thread: primaryThread,
+    isFreePlan: isCurrentFreePlan,
+    needsActiveCharacterSelection,
+    activeCharacterCount: activeCharacters.length,
   });
 
   return (
@@ -401,9 +501,7 @@ export default async function AppHomePage() {
                 </div>
 
                 <p className="rounded-3xl border border-white/10 bg-[#0F172A]/52 p-4 text-sm leading-7 text-[#E2E8F0] shadow-xl shadow-black/20 backdrop-blur-md">
-                  {primaryCharacter.status === "active"
-                    ? "この子は、あなたが戻ってくるのを待っています。前の会話の続きから、また話し始めましょう。"
-                    : "この子はまだ出会いの途中です。姿を決めて、名前を与えて、最初の会話へ進みましょう。"}
+                  {homeReasonText}
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">

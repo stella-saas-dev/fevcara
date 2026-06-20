@@ -47,6 +47,7 @@ type CharacterDetailRow = {
   dislikes: string | null;
 
   status: string | null;
+  image_url: string | null;
   icon_image_url: string | null;
   created_at: string;
 };
@@ -117,32 +118,34 @@ function DetailItem({
   );
 }
 
-function CharacterHeaderAvatar({
+function CharacterAvatar({
   name,
   imageUrl,
-  needsActiveCharacterSelection,
-  isWaitingCharacter,
+  sizeClass,
+  roundedClass,
+  textClass,
+  muted = false,
 }: {
   name: string;
   imageUrl: string | null;
-  needsActiveCharacterSelection: boolean;
-  isWaitingCharacter: boolean;
+  sizeClass: string;
+  roundedClass: string;
+  textClass: string;
+  muted?: boolean;
 }) {
-  const baseClass =
-    "flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.5rem] border text-3xl font-black";
+  const baseClass = [
+    "relative shrink-0 overflow-hidden border bg-gradient-to-br from-[#BEF264]/20 via-white/[0.06] to-[#7DD3FC]/20 shadow-lg shadow-[#7DD3FC]/10",
+    sizeClass,
+    roundedClass,
+    textClass,
+    muted
+      ? "border-white/10 opacity-75"
+      : "border-[#BEF264]/25",
+  ].join(" ");
 
   if (imageUrl) {
     return (
-      <div
-        className={[
-          baseClass,
-          needsActiveCharacterSelection
-            ? "border-[#F9A8D4]/45 bg-white shadow-lg shadow-[#F9A8D4]/15"
-            : isWaitingCharacter
-              ? "border-white/10 bg-white/[0.04] opacity-70"
-              : "border-[#BEF264]/20 bg-white shadow-lg shadow-[#7DD3FC]/10",
-        ].join(" ")}
-      >
+      <div className={baseClass}>
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
       </div>
     );
@@ -152,11 +155,7 @@ function CharacterHeaderAvatar({
     <div
       className={[
         baseClass,
-        needsActiveCharacterSelection
-          ? "border-[#F9A8D4]/45 bg-[#F9A8D4]/15 text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15"
-          : isWaitingCharacter
-            ? "border-white/10 bg-white/[0.04] text-[#7D8AA3]"
-            : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-[#F4F1EA]",
+        "flex items-center justify-center font-black text-[#F4F1EA]",
       ].join(" ")}
     >
       {getAvatarText(name)}
@@ -211,6 +210,7 @@ export default async function CharacterDetailPage({
       likes,
       dislikes,
       status,
+      image_url,
       icon_image_url,
       created_at
     `,
@@ -277,7 +277,7 @@ export default async function CharacterDetailPage({
     "名前のないキャラクター";
 
   return (
-    <main className="min-h-screen bg-[#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
         <header>
           <Link
@@ -287,54 +287,140 @@ export default async function CharacterDetailPage({
             ← キャラクター一覧へ戻る
           </Link>
 
-          <div
+          <section
             className={[
-              "mt-8 rounded-[2rem] border p-5 shadow-2xl shadow-black/30",
+              "mt-8 overflow-hidden rounded-[2rem] border shadow-2xl shadow-black/30",
               needsActiveCharacterSelection
                 ? "border-[#F9A8D4]/25 bg-[#111827]/80 shadow-[#F9A8D4]/10"
                 : isWaitingCharacter
                   ? "border-white/10 bg-[#111827]/60 opacity-85"
-                  : "border-white/10 bg-gradient-to-br from-[#111827] to-[#0B1020]",
+                  : "border-white/10 bg-[#111827]/80",
             ].join(" ")}
           >
-            <div className="flex items-start gap-4">
-              <CharacterHeaderAvatar
-                name={characterName}
-                imageUrl={character.icon_image_url}
-                needsActiveCharacterSelection={needsActiveCharacterSelection}
-                isWaitingCharacter={isWaitingCharacter}
-              />
+            <div className="relative aspect-square w-full bg-[#EEF1F4]">
+              {character.image_url ? (
+                <img
+                  src={character.image_url}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-contain object-center"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(190,242,100,0.22),transparent_32%),radial-gradient(circle_at_50%_60%,rgba(125,211,252,0.18),transparent_38%),#111827]" />
+              )}
 
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold tracking-[0.24em] text-[#FACC15]">
-                  CHARACTER DETAIL
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.12)_28%,rgba(15,23,42,0.62)_66%,rgba(15,23,42,0.94))]" />
+
+              <div className="relative z-10 flex h-full flex-col justify-end p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <CharacterAvatar
+                    name={characterName}
+                    imageUrl={character.icon_image_url}
+                    sizeClass="h-16 w-16"
+                    roundedClass="rounded-3xl"
+                    textClass="text-2xl"
+                    muted={isWaitingCharacter}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
+                      CHARACTER PROFILE
+                    </p>
+                    <h1 className="mt-1 break-words text-3xl font-black text-white">
+                      {characterName}
+                    </h1>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {character.role_name ? (
+                        <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/15 px-3 py-1 text-xs font-bold text-[#BAE6FD] backdrop-blur">
+                          {character.role_name}
+                        </span>
+                      ) : null}
+
+                      {needsActiveCharacterSelection ? (
+                        <span className="rounded-full border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-3 py-1 text-xs font-black text-[#FCE7F3] backdrop-blur">
+                          選択が必要
+                        </span>
+                      ) : null}
+
+                      {isActiveFreeCharacter ? (
+                        <span className="rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-3 py-1 text-xs font-black text-[#D9F99D] backdrop-blur">
+                          Freeで利用中
+                        </span>
+                      ) : null}
+
+                      {!needsActiveCharacterSelection && isWaitingCharacter ? (
+                        <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A] backdrop-blur">
+                          待機中
+                        </span>
+                      ) : null}
+
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-bold text-[#F4F1EA] backdrop-blur">
+                        {character.status || "draft"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="rounded-3xl border border-white/10 bg-[#0F172A]/52 p-4 text-sm leading-7 text-[#E2E8F0] shadow-xl shadow-black/20 backdrop-blur-md">
+                  {character.status === "active"
+                    ? "このキャラクターのプロフィールです。話し方、役割、好きなもの、こだわり設定をここから確認できます。"
+                    : "このキャラクターはまだ出会いの途中です。ビジュアルを整えて、最初の出会いイベントへ進みましょう。"}
                 </p>
-                <h1 className="mt-2 break-words text-3xl font-black">
-                  {characterName}
-                </h1>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Link
+                    href={`/app/characters/${character.id}/visual`}
+                    className="block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-4 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+                  >
+                    ビジュアル変更
+                    <span className="mt-1 block text-xs font-bold text-[#17212F]/75">
+                      姿・アイコン
+                    </span>
+                  </Link>
+
                   {needsActiveCharacterSelection ? (
-                    <span className="rounded-full border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-3 py-1 text-xs font-black text-[#FCE7F3]">
-                      選択が必要
-                    </span>
-                  ) : null}
-
-                  {isActiveFreeCharacter ? (
-                    <span className="rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-3 py-1 text-xs font-black text-[#D9F99D]">
-                      Freeで利用中
-                    </span>
-                  ) : null}
-
-                  {!needsActiveCharacterSelection && isWaitingCharacter ? (
-                    <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
-                      待機中
-                    </span>
-                  ) : null}
+                    <Link
+                      href="/app/characters/select-active"
+                      className="block rounded-2xl border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-4 py-4 text-center text-sm font-black text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15 backdrop-blur transition hover:bg-[#F9A8D4]/20"
+                    >
+                      使うキャラを選ぶ
+                      <span className="mt-1 block text-xs font-medium text-[#F9A8D4]">
+                        選択が必要
+                      </span>
+                    </Link>
+                  ) : isWaitingCharacter ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-4 text-sm font-black text-[#A7B0C0] opacity-75 backdrop-blur"
+                    >
+                      話しかける
+                      <span className="mt-1 block text-xs font-medium text-[#7D8AA3]">
+                        待機中
+                      </span>
+                    </button>
+                  ) : (
+                    <form action={startSingleChat}>
+                      <input
+                        type="hidden"
+                        name="characterId"
+                        value={character.id}
+                      />
+                      <button
+                        type="submit"
+                        className="h-full w-full rounded-2xl border border-white/12 bg-white/[0.10] px-4 py-4 text-center text-sm font-black text-[#F8FAFC] shadow-lg shadow-black/10 backdrop-blur transition hover:bg-white/[0.16]"
+                      >
+                        話しかける
+                        <span className="mt-1 block text-xs font-medium text-[#D8DEE9]">
+                          チャットへ
+                        </span>
+                      </button>
+                    </form>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </header>
 
         {query.error ? (
@@ -376,54 +462,6 @@ export default async function CharacterDetailPage({
         ) : null}
 
         <div className="mt-6 grid gap-5">
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              href={`/app/characters/${character.id}/visual`}
-              className="block h-full w-full rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-4 text-center text-sm font-black text-[#D9F99D] transition hover:bg-[#BEF264]/15"
-            >
-              姿を生成する
-              <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                ビジュアルを決める
-              </span>
-            </Link>
-
-            {needsActiveCharacterSelection ? (
-              <Link
-                href="/app/characters/select-active"
-                className="block h-full w-full rounded-2xl border border-[#F9A8D4]/30 bg-[#F9A8D4]/15 px-4 py-4 text-center text-sm font-black text-[#FCE7F3] shadow-lg shadow-[#F9A8D4]/15 transition hover:bg-[#F9A8D4]/20"
-              >
-                使うキャラを選ぶ
-                <span className="mt-1 block text-xs font-medium text-[#F9A8D4]">
-                  選択が必要
-                </span>
-              </Link>
-            ) : isWaitingCharacter ? (
-              <button
-                type="button"
-                disabled
-                className="h-full w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm font-black text-[#7D8AA3] opacity-70"
-              >
-                話しかける
-                <span className="mt-1 block text-xs font-medium text-[#7D8AA3]">
-                  待機中
-                </span>
-              </button>
-            ) : (
-              <form action={startSingleChat}>
-                <input type="hidden" name="characterId" value={character.id} />
-                <button
-                  type="submit"
-                  className="h-full w-full rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-4 py-4 text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
-                >
-                  話しかける
-                  <span className="mt-1 block text-xs font-medium text-[#A7B0C0]">
-                    チャットを開く
-                  </span>
-                </button>
-              </form>
-            )}
-          </div>
-
           <Link
             href={`/app/characters/${character.id}/edit`}
             className="block rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-5 py-4 text-center text-sm font-black text-[#FDE68A] transition hover:bg-[#FACC15]/15"
