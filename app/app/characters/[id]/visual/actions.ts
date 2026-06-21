@@ -127,19 +127,30 @@ export async function generateCharacterVisual(formData: FormData) {
     plan: profile.plan,
   });
 
-  const { count: imageCount, error: imageCountError } = await supabase
+  let imageCountQuery = supabase
     .from("character_images")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
+
+  if (planConfig.imageSaveLimitScope === "character") {
+    imageCountQuery = imageCountQuery.eq("character_id", characterId);
+  }
+
+  const { count: imageCount, error: imageCountError } = await imageCountQuery;
 
   if (imageCountError) {
     redirectWithError(characterId, "画像保存枚数の確認に失敗しました。");
   }
 
+  const imageSaveScopeText =
+    planConfig.imageSaveLimitScope === "character"
+      ? "このキャラクターの画像保存枚数"
+      : "アカウント全体の画像保存枚数";
+
   if ((imageCount ?? 0) >= planConfig.imageSaveLimit) {
     redirectWithError(
       characterId,
-      `${planConfig.label}プランの画像保存枚数上限 ${planConfig.imageSaveLimit} 枚に達しています。不要な画像を削除するか、上位プランを検討してください。`,
+      `${planConfig.label}プランの${imageSaveScopeText}上限 ${planConfig.imageSaveLimit} 枚に達しています。不要な画像を削除するか、上位プランを検討してください。`,
     );
   }
 

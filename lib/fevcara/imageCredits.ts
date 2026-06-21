@@ -4,10 +4,14 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 export type PlanTier = "free" | "premium_lite" | "premium";
 
+export type ImageSaveLimitScope = "account" | "character";
+
 export type ImagePlanConfig = {
   planTier: PlanTier;
   label: string;
   imageSaveLimit: number;
+  imageSaveLimitScope: ImageSaveLimitScope;
+  imageSaveLimitLabel: string;
   canUseHighQuality: boolean;
 };
 
@@ -45,7 +49,9 @@ export function getImagePlanConfig(plan: string | null): ImagePlanConfig {
     return {
       planTier,
       label: "Premium",
-      imageSaveLimit: 100,
+      imageSaveLimit: 10,
+      imageSaveLimitScope: "character",
+      imageSaveLimitLabel: "このキャラ",
       canUseHighQuality: true,
     };
   }
@@ -54,7 +60,9 @@ export function getImagePlanConfig(plan: string | null): ImagePlanConfig {
     return {
       planTier,
       label: "Lite",
-      imageSaveLimit: 30,
+      imageSaveLimit: 10,
+      imageSaveLimitScope: "character",
+      imageSaveLimitLabel: "このキャラ",
       canUseHighQuality: true,
     };
   }
@@ -62,7 +70,9 @@ export function getImagePlanConfig(plan: string | null): ImagePlanConfig {
   return {
     planTier,
     label: "Free",
-    imageSaveLimit: 4,
+    imageSaveLimit: 10,
+    imageSaveLimitScope: "account",
+    imageSaveLimitLabel: "アカウント全体",
     canUseHighQuality: false,
   };
 }
@@ -82,6 +92,17 @@ function getNextMonthStartIso() {
   );
 
   return nextMonthStart.toISOString();
+}
+
+function addHoursIso(value: string, hours: number) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+  }
+
+  date.setUTCHours(date.getUTCHours() + hours);
+  return date.toISOString();
 }
 
 function getCurrentMonthStartIso() {
@@ -195,13 +216,22 @@ export async function ensureImageCreditGrants({
   const nextMonthStartIso = getNextMonthStartIso();
 
   if (planTier === "free") {
+    const nowIso = new Date().toISOString();
     const alreadyGranted = await hasCreditSource({
       supabase,
       userId,
       source: "free_initial",
     });
 
+    let initialCreatedAt = await getCreditSourceCreatedAt({
+      supabase,
+      userId,
+      source: "free_initial",
+    });
+
     if (!alreadyGranted) {
+      initialCreatedAt = nowIso;
+
       await grantCredits({
         supabase,
         userId,
@@ -210,6 +240,27 @@ export async function ensureImageCreditGrants({
         amount: 4,
         expiresAt: null,
         note: "Free initial 4 image credits. No monthly renewal.",
+      });
+    }
+
+    const alreadyGrantedTrialBoost = await hasCreditSource({
+      supabase,
+      userId,
+      source: "free_trial_boost",
+    });
+
+    const trialBaseIso = initialCreatedAt ?? nowIso;
+    const trialExpiresAt = addHoursIso(trialBaseIso, 72);
+
+    if (!alreadyGrantedTrialBoost && trialExpiresAt > nowIso) {
+      await grantCredits({
+        supabase,
+        userId,
+        plan,
+        source: "free_trial_boost",
+        amount: 6,
+        expiresAt: trialExpiresAt,
+        note: "Free 72-hour Trial Boost 6 image credits.",
       });
     }
 
@@ -401,11 +452,11 @@ export async function consumeImageCredits({
     usageRows.push({
       user_id: userId,
       plan: plan || "free",
-      source: "usage_monthly",
+      source: "usage_expiring",
       amount: -amountToUse,
       expires_at: expiresAt,
       related_character_id: relatedCharacterId,
-      note: "Image generation credit consumed from monthly credits.",
+      note: "Image generation credit consumed from expiring credits.",
     });
 
     remaining -= amountToUse;

@@ -204,13 +204,28 @@ export default async function CharacterVisualPage({
 
   const images = (imageData ?? []) as CharacterImageRow[];
 
-  const { count: totalImageCount } = await supabase
+  let imageCountQuery = supabase
     .from("character_images")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
 
-  const characterName = getCharacterName(character);
-  const savedImageCount = totalImageCount ?? 0;
+  if (planConfig.imageSaveLimitScope === "character") {
+    imageCountQuery = imageCountQuery.eq("character_id", character.id);
+  }
+
+  const { count: scopedImageCount } = await imageCountQuery;
+
+    const characterName = getCharacterName(character);
+  const savedImageCount = scopedImageCount ?? 0;
+
+  const saveLimitTitle =
+    planConfig.imageSaveLimitScope === "character" ? "キャラ画像" : "保存画像";
+
+  const saveLimitHelperText =
+    planConfig.imageSaveLimitScope === "character"
+      ? `${planConfig.label}はこのキャラクターごとに最大${planConfig.imageSaveLimit}枚まで保存できます。`
+      : `${planConfig.label}はアカウント全体で最大${planConfig.imageSaveLimit}枚まで保存できます。`;
+
   const saveLimitPercent = Math.min(
     100,
     Math.round((savedImageCount / planConfig.imageSaveLimit) * 100),
@@ -311,9 +326,21 @@ export default async function CharacterVisualPage({
               <h2 className="mt-2 text-2xl font-black">
                 残り {balance} クレジット
               </h2>
-              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-                {planConfig.label}プラン / 保存上限 {savedImageCount} /{" "}
-                {planConfig.imageSaveLimit} 枚
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
+                  {planConfig.label}
+                </span>
+
+                <span className="text-sm font-bold text-[#D6DCE8]">
+                  {saveLimitTitle}{" "}
+                  <span className="font-black text-[#F4F1EA]">
+                    {savedImageCount}/{planConfig.imageSaveLimit}枚
+                  </span>
+                </span>
+              </div>
+
+              <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
+                {saveLimitHelperText}
               </p>
             </div>
 
