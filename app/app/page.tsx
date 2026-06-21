@@ -36,7 +36,68 @@ type CharacterLimitConfig = {
   planTier: PlanTier;
   limit: number;
   label: string;
+  isTrialBoostActive: boolean;
 };
+
+const FREE_TRIAL_BOOST_DURATION_HOURS = 72;
+const FREE_TRIAL_BOOST_CHARACTER_LIMIT = 3;
+const FREE_NORMAL_CHARACTER_LIMIT = 1;
+
+function getTrialBoostEndsAt(userCreatedAt: string | null | undefined) {
+  if (!userCreatedAt) {
+    return null;
+  }
+
+  const createdAt = new Date(userCreatedAt);
+
+  if (Number.isNaN(createdAt.getTime())) {
+    return null;
+  }
+
+  return new Date(
+    createdAt.getTime() + FREE_TRIAL_BOOST_DURATION_HOURS * 60 * 60 * 1000,
+  );
+}
+
+function getTrialBoostStatus({
+  plan,
+  userCreatedAt,
+  now,
+}: {
+  plan: string | null;
+  userCreatedAt: string | null | undefined;
+  now: Date;
+}) {
+  const planTier = getPlanTier(plan);
+  const endsAt = getTrialBoostEndsAt(userCreatedAt);
+  const isActive = planTier === "free" && Boolean(endsAt) && now < endsAt!;
+
+  return {
+    endsAt,
+    isActive,
+    hasEnded: planTier === "free" && Boolean(endsAt) && now >= endsAt!,
+  };
+}
+
+function formatTrialBoostRemaining(endsAt: Date | null, now: Date) {
+  if (!endsAt) {
+    return "";
+  }
+
+  const remainingMs = endsAt.getTime() - now.getTime();
+
+  if (remainingMs <= 0) {
+    return "終了しました";
+  }
+
+  const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+
+  if (remainingHours >= 48) {
+    return `残り約${Math.ceil(remainingHours / 24)}日`;
+  }
+
+  return `残り約${remainingHours}時間`;
+}
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
@@ -60,7 +121,13 @@ function getPlanTier(plan: string | null): PlanTier {
   return "free";
 }
 
-function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+function getCharacterLimitConfig({
+  plan,
+  isTrialBoostActive,
+}: {
+  plan: string | null;
+  isTrialBoostActive: boolean;
+}): CharacterLimitConfig {
   const planTier = getPlanTier(plan);
 
   if (planTier === "premium") {
@@ -68,6 +135,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 10,
       label: "Premium",
+      isTrialBoostActive: false,
     };
   }
 
@@ -76,13 +144,17 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 3,
       label: "Lite",
+      isTrialBoostActive: false,
     };
   }
 
   return {
     planTier,
-    limit: 1,
-    label: "Free",
+    limit: isTrialBoostActive
+      ? FREE_TRIAL_BOOST_CHARACTER_LIMIT
+      : FREE_NORMAL_CHARACTER_LIMIT,
+    label: isTrialBoostActive ? "Free Trial" : "Free",
+    isTrialBoostActive,
   };
 }
 
@@ -210,12 +282,14 @@ function getHomeReasonText({
   character,
   thread,
   isFreePlan,
+  isTrialBoostActive,
   needsActiveCharacterSelection,
   activeCharacterCount,
 }: {
   character: CharacterRow | null;
   thread: ChatThreadRow | null;
   isFreePlan: boolean;
+  isTrialBoostActive: boolean;
   needsActiveCharacterSelection: boolean;
   activeCharacterCount: number;
 }) {
@@ -229,6 +303,14 @@ function getHomeReasonText({
 
   if (character.status !== "active") {
     return "この子はまだ出会いの途中です。姿を決めて、名前を与えて、最初の会話へ進みましょう。";
+  }
+
+  if (isTrialBoostActive && activeCharacterCount >= 2) {
+    return "初回72時間トライアル中です。今だけ複数キャラとグループチャットを体験できます。今日はキャラクター同士の関係も楽しんでみましょう。";
+  }
+
+  if (isTrialBoostActive) {
+    return "初回72時間トライアル中です。今だけキャラクター3人まで作成できます。まずはこの子との会話を始めましょう。";
   }
 
   if (isFreePlan) {
@@ -272,8 +354,24 @@ export default async function AppHomePage() {
     character_limit_choice_locked: false,
   }) as ProfileRow;
 
-  const limitConfig = getCharacterLimitConfig(profile.plan);
+  const now = new Date();
+  const trialBoostStatus = getTrialBoostStatus({
+    plan: profile.plan,
+    userCreatedAt: user.created_at,
+    now,
+  });
+  const trialBoostRemainingText = formatTrialBoostRemaining(
+    trialBoostStatus.endsAt,
+    now,
+  );
+
+  const limitConfig = getCharacterLimitConfig({
+    plan: profile.plan,
+    isTrialBoostActive: trialBoostStatus.isActive,
+  });
   const isCurrentFreePlan = limitConfig.planTier === "free";
+  const isFreeSingleCharacterMode =
+    isCurrentFreePlan && !trialBoostStatus.isActive;
   const isUserSetupCompleted = Boolean(profile.user_setup_completed);
 
   const { data: charactersData } = await supabase
@@ -362,7 +460,7 @@ export default async function AppHomePage() {
 
   const newestDraftOrAnyCharacter = characters[0] ?? null;
 
-  const primaryCharacter = isCurrentFreePlan
+  const primaryCharacter = isFreeSingleCharacterMode
     ? activeCharacter ??
       activeCharacters[0] ??
       newestDraftOrAnyCharacter
@@ -375,7 +473,7 @@ export default async function AppHomePage() {
   const primaryCharacterName = getCharacterName(primaryCharacter);
 
   const isOverFreeLimit =
-    isCurrentFreePlan && characterCount > limitConfig.limit;
+    isFreeSingleCharacterMode && characterCount > limitConfig.limit;
 
   const needsActiveCharacterSelection =
     isOverFreeLimit && !profile.character_limit_choice_locked;
@@ -392,9 +490,18 @@ export default async function AppHomePage() {
     character: primaryCharacter,
     thread: primaryThread,
     isFreePlan: isCurrentFreePlan,
+    isTrialBoostActive: trialBoostStatus.isActive,
     needsActiveCharacterSelection,
     activeCharacterCount: activeCharacters.length,
   });
+
+  const activeSelectionTitle = trialBoostStatus.hasEnded
+    ? "初回トライアルは終了しました"
+    : "Freeで使うキャラクターを選んでください";
+
+  const activeSelectionBody = trialBoostStatus.hasEnded
+    ? `Freeプランでは話せるキャラクターは1人です。作成したキャラクターは削除されません。現在${characterCount}人いるので、今話す1人を選んでください。`
+    : `現在キャラクターが${characterCount}人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。`;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -450,6 +557,40 @@ export default async function AppHomePage() {
             >
               ユーザー設定をする
             </Link>
+          </div>
+        ) : null}
+
+        {trialBoostStatus.isActive ? (
+          <div className="mt-5 rounded-[2rem] border border-[#BEF264]/25 bg-[#BEF264]/10 p-5 shadow-xl shadow-[#BEF264]/5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-black tracking-[0.16em] text-[#D9F99D]">
+                  TRIAL BOOST
+                </p>
+                <h2 className="mt-2 text-xl font-black leading-tight">
+                  初回72時間トライアル中
+                </h2>
+              </div>
+
+              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
+                {trialBoostRemainingText}
+              </span>
+            </div>
+
+            <p className="mt-3 text-sm leading-7 text-[#E2E8F0]">
+              今だけキャラクター3人とグループチャットを体験できます。
+              トライアル終了後、Freeプランで話せるキャラクターは1人になります。
+              作成したキャラクターは削除されません。
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs font-bold">
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#D9F99D]">
+                キャラ上限 3人
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#BAE6FD]">
+                グループチャット体験
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -563,11 +704,10 @@ export default async function AppHomePage() {
         {needsActiveCharacterSelection ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
-              Freeで使うキャラクターを選んでください
+              {activeSelectionTitle}
             </p>
             <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-              現在キャラクターが{characterCount}
-              人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。
+              {activeSelectionBody}
             </p>
 
             <Link
