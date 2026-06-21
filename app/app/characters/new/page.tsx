@@ -11,7 +11,11 @@ type CharacterLimitConfig = {
   limit: number;
   label: string;
   description: string;
+  isTrialBoostActive: boolean;
+  trialBoostRemainingText: string | null;
 };
+
+const TRIAL_BOOST_DURATION_MS = 72 * 60 * 60 * 1000;
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
@@ -35,7 +39,54 @@ function getPlanTier(plan: string | null): PlanTier {
   return "free";
 }
 
-function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+function getTrialBoostInfo({
+  plan,
+  userCreatedAt,
+}: {
+  plan: string | null;
+  userCreatedAt: string | null | undefined;
+}) {
+  if (getPlanTier(plan) !== "free") {
+    return {
+      isActive: false,
+      remainingText: null,
+    };
+  }
+
+  const createdAtTime = new Date(userCreatedAt ?? "").getTime();
+
+  if (!Number.isFinite(createdAtTime)) {
+    return {
+      isActive: false,
+      remainingText: null,
+    };
+  }
+
+  const endsAtTime = createdAtTime + TRIAL_BOOST_DURATION_MS;
+  const remainingMs = endsAtTime - Date.now();
+
+  if (remainingMs <= 0) {
+    return {
+      isActive: false,
+      remainingText: null,
+    };
+  }
+
+  const remainingHours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)));
+
+  return {
+    isActive: true,
+    remainingText:
+      remainingHours >= 24
+        ? `あと約${Math.ceil(remainingHours / 24)}日`
+        : `あと約${remainingHours}時間`,
+  };
+}
+
+function getCharacterLimitConfig(
+  plan: string | null,
+  userCreatedAt?: string | null,
+): CharacterLimitConfig {
   const planTier = getPlanTier(plan);
 
   if (planTier === "premium") {
@@ -44,6 +95,8 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       limit: 10,
       label: "Premium",
       description: "Premiumでは、最大10人までキャラクターを作成できます。",
+      isTrialBoostActive: false,
+      trialBoostRemainingText: null,
     };
   }
 
@@ -53,6 +106,25 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       limit: 3,
       label: "Lite",
       description: "Liteでは、最大3人までキャラクターを作成できます。",
+      isTrialBoostActive: false,
+      trialBoostRemainingText: null,
+    };
+  }
+
+  const trialBoostInfo = getTrialBoostInfo({
+    plan,
+    userCreatedAt,
+  });
+
+  if (trialBoostInfo.isActive) {
+    return {
+      planTier,
+      limit: 3,
+      label: "Free Trial",
+      description:
+        "初回72時間トライアル中です。今だけ最大3人までキャラクターを作成できます。",
+      isTrialBoostActive: true,
+      trialBoostRemainingText: trialBoostInfo.remainingText,
     };
   }
 
@@ -61,6 +133,8 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
     limit: 1,
     label: "Free",
     description: "Freeでは、まず1人のキャラクターとじっくり出会えます。",
+    isTrialBoostActive: false,
+    trialBoostRemainingText: null,
   };
 }
 
@@ -82,7 +156,7 @@ export default async function NewCharacterPage() {
     .maybeSingle();
 
   const currentPlan = String(profileData?.plan ?? "free");
-  const limitConfig = getCharacterLimitConfig(currentPlan);
+  const limitConfig = getCharacterLimitConfig(currentPlan, user.created_at);
 
   const { count } = await supabase
     .from("characters")
@@ -121,10 +195,26 @@ export default async function NewCharacterPage() {
               <p className="text-xs font-black tracking-[0.2em] text-[#7DD3FC]">
                 CURRENT PLAN
               </p>
-              <h2 className="mt-2 text-xl font-black">{limitConfig.label}</h2>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-black">{limitConfig.label}</h2>
+
+                {limitConfig.isTrialBoostActive ? (
+                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    初回72時間
+                  </span>
+                ) : null}
+              </div>
+
               <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
                 {limitConfig.description}
               </p>
+
+              {limitConfig.isTrialBoostActive ? (
+                <p className="mt-2 text-xs font-bold leading-5 text-[#FDE68A]">
+                  {limitConfig.trialBoostRemainingText}、3人作成とグループチャット体験が使えます。
+                </p>
+              ) : null}
             </div>
 
             <div className="shrink-0 rounded-2xl border border-[#BEF264]/20 bg-[#BEF264]/10 px-4 py-3 text-center">
@@ -140,6 +230,18 @@ export default async function NewCharacterPage() {
               </p>
             </div>
           </div>
+
+          {limitConfig.isTrialBoostActive ? (
+            <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
+              <p className="text-sm font-black text-[#FDE68A]">
+                Trial Boost中です
+              </p>
+              <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+                Freeのまま、初回72時間だけキャラクター3人とグループチャットを体験できます。
+                期間終了後、Freeで話せるキャラクターは1人になりますが、作成したキャラクターは削除されません。
+              </p>
+            </div>
+          ) : null}
 
           {isOverLimit ? (
             <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
@@ -165,7 +267,7 @@ export default async function NewCharacterPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
-              {limitConfig.label}プランでは、キャラクターを
+              {limitConfig.label}では、キャラクターを
               <span className="font-black text-[#F4F1EA]">
                 {limitConfig.limit}人
               </span>
@@ -176,6 +278,17 @@ export default async function NewCharacterPage() {
               </span>
               います。
             </p>
+
+            {limitConfig.isTrialBoostActive ? (
+              <p className="mt-3 rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 p-4 text-xs font-bold leading-6 text-[#FDE68A]">
+                Trial Boost中の上限に達しています。
+                まずは3人でグループチャットを体験してみましょう。
+              </p>
+            ) : limitConfig.planTier === "free" ? (
+              <p className="mt-3 rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 text-xs font-bold leading-6 text-[#BAE6FD]">
+                Liteにすると、最大3人のキャラクターとグループチャットを使えるようになります。
+              </p>
+            ) : null}
 
             <div className="mt-6 grid gap-3">
               <Link

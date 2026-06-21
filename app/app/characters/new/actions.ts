@@ -50,7 +50,10 @@ type CharacterLimitConfig = {
   planTier: PlanTier;
   limit: number;
   label: string;
+  isTrialBoostActive: boolean;
 };
+
+const TRIAL_BOOST_DURATION_MS = 72 * 60 * 60 * 1000;
 
 type ArtStyleIdRow = {
   id: string;
@@ -138,7 +141,30 @@ function getPlanTier(plan: string | null): PlanTier {
   return "free";
 }
 
-function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+function isFreeTrialBoostActive({
+  plan,
+  userCreatedAt,
+}: {
+  plan: string | null;
+  userCreatedAt: string | null | undefined;
+}) {
+  if (getPlanTier(plan) !== "free") {
+    return false;
+  }
+
+  const createdAtTime = new Date(userCreatedAt ?? "").getTime();
+
+  if (!Number.isFinite(createdAtTime)) {
+    return false;
+  }
+
+  return Date.now() < createdAtTime + TRIAL_BOOST_DURATION_MS;
+}
+
+function getCharacterLimitConfig(
+  plan: string | null,
+  userCreatedAt?: string | null,
+): CharacterLimitConfig {
   const planTier = getPlanTier(plan);
 
   if (planTier === "premium") {
@@ -146,6 +172,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 10,
       label: "Premium",
+      isTrialBoostActive: false,
     };
   }
 
@@ -154,13 +181,20 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 3,
       label: "Lite",
+      isTrialBoostActive: false,
     };
   }
 
+  const isTrialBoostActive = isFreeTrialBoostActive({
+    plan,
+    userCreatedAt,
+  });
+
   return {
     planTier,
-    limit: 1,
-    label: "Free",
+    limit: isTrialBoostActive ? 3 : 1,
+    label: isTrialBoostActive ? "Free Trial" : "Free",
+    isTrialBoostActive,
   };
 }
 
@@ -222,12 +256,14 @@ async function checkCharacterCreateLimit({
   supabase,
   userId,
   plan,
+  userCreatedAt,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
   plan: string | null;
+  userCreatedAt: string | null | undefined;
 }) {
-  const limitConfig = getCharacterLimitConfig(plan);
+  const limitConfig = getCharacterLimitConfig(plan, userCreatedAt);
 
   const { count, error: countError } = await supabase
     .from("characters")
@@ -241,6 +277,10 @@ async function checkCharacterCreateLimit({
   const currentCount = count ?? 0;
 
   if (currentCount >= limitConfig.limit) {
+    if (limitConfig.isTrialBoostActive) {
+      return `初回72時間トライアル中はキャラクターを${limitConfig.limit}人まで作成できます。現在 ${currentCount} / ${limitConfig.limit} 人です。`;
+    }
+
     return `${limitConfig.label}プランではキャラクターを${limitConfig.limit}人まで作成できます。現在 ${currentCount} / ${limitConfig.limit} 人です。`;
   }
 
@@ -432,6 +472,7 @@ export async function createCharacter(
     supabase,
     userId: user.id,
     plan: profileResult.profile.plan,
+    userCreatedAt: user.created_at,
   });
 
   if (limitError) {
