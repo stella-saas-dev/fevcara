@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -93,11 +92,12 @@ function getCharacterName(character: CharacterForGroupChat) {
 }
 
 function redirectWithError(message: string): never {
-  redirect(`/app/chats/group/new?error=${encodeURIComponent(message)}`);
+  return redirect(`/app/chats/group/new?error=${encodeURIComponent(message)}`);
 }
 
 export async function createGroupChat(formData: FormData) {
   const requestedTitle = getText(formData, "title");
+
   const selectedCharacterIds = Array.from(
     new Set(
       formData
@@ -128,7 +128,7 @@ export async function createGroupChat(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    return redirect("/login");
   }
 
   const { data: profileData, error: profileError } = await supabase
@@ -233,6 +233,5 @@ export async function createGroupChat(formData: FormData) {
     redirectWithError("グループメンバーの保存に失敗しました。");
   }
 
-  revalidatePath("/app/chats");
-  redirect(`/app/chat/${thread.id}`);
+  return redirect(`/app/chat/${thread.id}`);
 }
