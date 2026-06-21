@@ -15,26 +15,17 @@ type ChatPageProps = {
   }>;
 };
 
-type CharacterRelation =
-  | {
-      id: string;
-      temporary_name: string | null;
-      final_name: string | null;
-      role_name: string | null;
-      default_expression: string | null;
-      icon_image_url: string | null;
-      image_url: string | null;
-    }
-  | {
-      id: string;
-      temporary_name: string | null;
-      final_name: string | null;
-      role_name: string | null;
-      default_expression: string | null;
-      icon_image_url: string | null;
-      image_url: string | null;
-    }[]
-  | null;
+type CharacterSummary = {
+  id: string;
+  temporary_name: string | null;
+  final_name: string | null;
+  role_name: string | null;
+  default_expression: string | null;
+  icon_image_url: string | null;
+  image_url: string | null;
+};
+
+type CharacterRelation = CharacterSummary | CharacterSummary[] | null;
 
 type ThreadRow = {
   id: string;
@@ -51,6 +42,13 @@ type MessageRow = {
   character_id: string | null;
   created_at: string;
 };
+
+type GroupMemberRow = {
+  character_id: string;
+  display_order: number | null;
+};
+
+type GroupCharacterRow = CharacterSummary;
 
 type ProfileForUsage = {
   plan: string | null;
@@ -80,6 +78,8 @@ type ChatThreadSummary = {
   updated_at: string | null;
 };
 
+const FREE_TRIAL_BOOST_HOURS = 72;
+
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
 }
@@ -97,6 +97,29 @@ function isPaidPlan(plan: string | null) {
 
 function isFreePlan(plan: string | null) {
   return !isPaidPlan(plan);
+}
+
+function isFreeTrialBoostActive({
+  plan,
+  createdAt,
+}: {
+  plan: string | null;
+  createdAt: string | null | undefined;
+}) {
+  if (!isFreePlan(plan) || !createdAt) {
+    return false;
+  }
+
+  const createdAtTime = new Date(createdAt).getTime();
+
+  if (Number.isNaN(createdAtTime)) {
+    return false;
+  }
+
+  const endsAtTime =
+    createdAtTime + FREE_TRIAL_BOOST_HOURS * 60 * 60 * 1000;
+
+  return Date.now() < endsAtTime;
 }
 
 function getJstDateParts(date: Date) {
@@ -156,9 +179,7 @@ function getCharacterFromRelation(characterRelation: CharacterRelation) {
   return characterRelation;
 }
 
-function getCharacterName(
-  character: ReturnType<typeof getCharacterFromRelation>,
-) {
+function getCharacterName(character: CharacterSummary | null | undefined) {
   if (!character) {
     return "キャラクター";
   }
@@ -303,10 +324,83 @@ export default async function ChatPage({
   }
 
   const thread = threadData as ThreadRow;
+  const isGroupChat = thread.chat_type === "group";
+
   const character = getCharacterFromRelation(thread.characters);
-  const characterName = getCharacterName(character);
-  const characterIconUrl = character?.icon_image_url ?? null;
-  const characterBackgroundUrl = character?.image_url ?? null;
+  const singleCharacterName = getCharacterName(character);
+
+  let groupCharacters: GroupCharacterRow[] = [];
+
+  if (isGroupChat) {
+    const { data: groupMembersData } = await supabase
+      .from("group_chat_members")
+      .select("character_id, display_order")
+      .eq("thread_id", thread.id)
+      .eq("user_id", user.id)
+      .order("display_order", { ascending: true });
+
+    const groupMembers = (groupMembersData ?? []) as GroupMemberRow[];
+    const groupCharacterIds = groupMembers.map((member) => member.character_id);
+
+    if (groupCharacterIds.length > 0) {
+      const { data: groupCharactersData } = await supabase
+        .from("characters")
+        .select(
+          `
+          id,
+          temporary_name,
+          final_name,
+          role_name,
+          default_expression,
+          icon_image_url,
+          image_url
+        `,
+        )
+        .eq("user_id", user.id)
+        .in("id", groupCharacterIds);
+
+      const fetchedCharacters =
+        (groupCharactersData ?? []) as GroupCharacterRow[];
+
+      const groupCharacterMap = new Map(
+        fetchedCharacters.map((groupCharacter) => [
+          groupCharacter.id,
+          groupCharacter,
+        ]),
+      );
+
+      groupCharacters = groupCharacterIds
+        .map((characterId) => groupCharacterMap.get(characterId) ?? null)
+        .filter((groupCharacter): groupCharacter is GroupCharacterRow =>
+          Boolean(groupCharacter),
+        );
+    }
+  }
+
+  const groupCharacterNames = groupCharacters.map((groupCharacter) =>
+    getCharacterName(groupCharacter),
+  );
+
+  const groupDisplayName =
+    thread.title ||
+    (groupCharacterNames.length >= 2
+      ? `${groupCharacterNames.join("・")}のグループ`
+      : "グループチャット");
+
+  const characterName = isGroupChat ? groupDisplayName : singleCharacterName;
+  const chatModeLabel = isGroupChat ? "GROUP CHAT" : "SINGLE CHAT";
+  const characterIconUrl = isGroupChat ? null : character?.icon_image_url ?? null;
+  const characterBackgroundUrl = isGroupChat ? null : character?.image_url ?? null;
+
+  const groupMessageCharacterMap = new Map(
+    groupCharacters.map((groupCharacter) => [groupCharacter.id, groupCharacter]),
+  );
+
+  const pageBackgroundClass = isGroupChat
+    ? "bg-[#060A14]"
+    : characterBackgroundUrl
+      ? "bg-[#EEF1F4]"
+      : "bg-[#0B1020]";
 
   const { data: messagesData } = await supabase
     .from("chat_messages")
@@ -400,6 +494,16 @@ export default async function ChatPage({
     }
   }
 
+  const trialBoostActive = isFreeTrialBoostActive({
+    plan: profileForCharacterAccess.plan,
+    createdAt: profileForUsage.created_at ?? user.created_at ?? null,
+  });
+
+  const isFreeAccessLimited =
+    isFreePlan(profileForCharacterAccess.plan) && !trialBoostActive;
+
+  const isGroupChatLocked = isGroupChat && isFreeAccessLimited;
+
   const { count: characterCount } = await supabase
     .from("characters")
     .select("id", { count: "exact", head: true })
@@ -408,7 +512,8 @@ export default async function ChatPage({
   const totalCharacters = characterCount ?? 0;
 
   const needsActiveCharacterSelection =
-    isFreePlan(profileForCharacterAccess.plan) &&
+    !isGroupChat &&
+    isFreeAccessLimited &&
     totalCharacters > 1 &&
     !profileForCharacterAccess.character_limit_choice_locked;
 
@@ -432,7 +537,8 @@ export default async function ChatPage({
   }
 
   const isWaitingThreadCharacter =
-    isFreePlan(profileForCharacterAccess.plan) &&
+    !isGroupChat &&
+    isFreeAccessLimited &&
     Boolean(profileForCharacterAccess.character_limit_choice_locked) &&
     Boolean(profileForCharacterAccess.active_character_id) &&
     Boolean(thread.character_id) &&
@@ -445,7 +551,8 @@ export default async function ChatPage({
     needsActiveCharacterSelection ||
     isFreeDailyLimitReached ||
     hasNoFreeMessages ||
-    isWaitingThreadCharacter;
+    isWaitingThreadCharacter ||
+    isGroupChatLocked;
 
   const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
 
@@ -453,8 +560,21 @@ export default async function ChatPage({
     messages.length > 0 ? messages[messages.length - 1].id : "empty";
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#EEF1F4] px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5">
-      {characterBackgroundUrl ? (
+    <main
+      className={[
+        "relative min-h-screen overflow-hidden px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5",
+        pageBackgroundClass,
+      ].join(" ")}
+    >
+      {isGroupChat ? (
+        <>
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_12%_8%,rgba(125,211,252,0.20),transparent_30%),radial-gradient(circle_at_88%_18%,rgba(190,242,100,0.16),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(250,204,21,0.10),transparent_34%),linear-gradient(180deg,#060A14_0%,#0B1020_46%,#111827_100%)]" />
+
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent_20%,rgba(0,0,0,0.28)_100%)]" />
+
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(125,211,252,0.18),transparent_62%)]" />
+        </>
+      ) : characterBackgroundUrl ? (
         <>
           <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#EEF1F4]">
             <img
@@ -506,7 +626,9 @@ export default async function ChatPage({
               <span
                 className={[
                   "absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020]",
-                  needsActiveCharacterSelection || isWaitingThreadCharacter
+                  needsActiveCharacterSelection ||
+                  isWaitingThreadCharacter ||
+                  isGroupChatLocked
                     ? "bg-[#FACC15]"
                     : "bg-[#BEF264]",
                 ].join(" ")}
@@ -515,13 +637,25 @@ export default async function ChatPage({
 
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-black tracking-[0.24em] text-[#7DD3FC]">
-                SINGLE CHAT
+                {chatModeLabel}
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <h1 className="break-words text-2xl font-black leading-tight text-white">
                   {characterName}
                 </h1>
+
+                {isGroupChat ? (
+                  <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-3 py-1 text-[10px] font-black text-[#BAE6FD]">
+                    {groupCharacters.length}人
+                  </span>
+                ) : null}
+
+                {trialBoostActive && isGroupChat ? (
+                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    Trial
+                  </span>
+                ) : null}
 
                 {needsActiveCharacterSelection ? (
                   <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
@@ -534,7 +668,26 @@ export default async function ChatPage({
                     待機中
                   </span>
                 ) : null}
+
+                {isGroupChatLocked ? (
+                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    ロック中
+                  </span>
+                ) : null}
               </div>
+
+              {isGroupChat && groupCharacters.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {groupCharacters.map((groupCharacter) => (
+                    <span
+                      key={groupCharacter.id}
+                      className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold text-[#D8DEE9]"
+                    >
+                      {getCharacterName(groupCharacter)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
@@ -647,6 +800,17 @@ export default async function ChatPage({
           </div>
         ) : null}
 
+        {isGroupChatLocked ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
+            <p className="font-black text-[#FDE68A]">
+              グループチャットは現在ロック中です。
+            </p>
+            <p className="mt-2 text-[#F8FAFC]">
+              Free通常時は1対1チャットのみ利用できます。Lite以上にすると、作成済みのグループチャットを再開できます。
+            </p>
+          </div>
+        ) : null}
+
         {needsActiveCharacterSelection ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
@@ -668,7 +832,7 @@ export default async function ChatPage({
         {shouldShowLimitNotice ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
-              この子はまだ話したそうにしています。
+              今日はここまでです。
             </p>
             <p className="mt-2 text-[#F8FAFC]">
               続きは明日、またはLiteで今すぐ再開できます。
@@ -690,7 +854,7 @@ export default async function ChatPage({
             </p>
             <p className="mt-3 text-xs leading-5 text-[#E2E8F0]">
               このキャラクターの設定や会話履歴は削除されません。
-              Lite以上で再開できる設計にします。
+              Lite以上で再開できます。
             </p>
           </div>
         ) : null}
@@ -699,6 +863,22 @@ export default async function ChatPage({
           {messages.length > 0 ? (
             messages.map((message) => {
               const isUser = message.sender_type === "user";
+              const speakerCharacter =
+                isGroupChat && message.character_id
+                  ? groupMessageCharacterMap.get(message.character_id) ?? null
+                  : character;
+
+              const speakerName =
+                isGroupChat && speakerCharacter
+                  ? getCharacterName(speakerCharacter)
+                  : isGroupChat
+                    ? "キャラクター"
+                    : characterName;
+
+              const speakerIconUrl =
+                isGroupChat && speakerCharacter
+                  ? speakerCharacter.icon_image_url
+                  : characterIconUrl;
 
               return (
                 <div
@@ -711,8 +891,8 @@ export default async function ChatPage({
                   {!isUser ? (
                     <div className="mb-5">
                       <CharacterAvatar
-                        name={characterName}
-                        imageUrl={characterIconUrl}
+                        name={speakerName}
+                        imageUrl={speakerIconUrl}
                         sizeClass="h-9 w-9"
                         roundedClass="rounded-2xl"
                         textClass="text-sm"
@@ -730,7 +910,7 @@ export default async function ChatPage({
                     {!isUser ? (
                       <div className="mb-1 px-1">
                         <span className="inline-flex rounded-full border border-[#0F172A]/22 bg-[#0F172A]/52 px-2.5 py-1 text-[11px] font-bold text-[#F8FAFC] shadow-sm backdrop-blur-md">
-                          {characterName}
+                          {speakerName}
                         </span>
                       </div>
                     ) : null}
@@ -786,7 +966,9 @@ export default async function ChatPage({
                 まだ会話はありません
               </h2>
               <p className="mt-3 text-sm leading-6 text-[#E2E8F0]">
-                最初のひと言を送って、このキャラクターと話し始めましょう。
+                最初のひと言を送って、
+                {isGroupChat ? "このグループ" : "このキャラクター"}
+                と話し始めましょう。
               </p>
             </div>
           )}
@@ -799,6 +981,17 @@ export default async function ChatPage({
       >
         <div className="mx-auto max-w-md rounded-[2rem] border border-white/14 bg-[#0F172A]/50 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
           <input type="hidden" name="threadId" value={thread.id} />
+
+          {isGroupChatLocked ? (
+            <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
+              <p className="text-xs font-black text-[#FDE68A]">
+                グループチャットはロック中です
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[#E2E8F0]">
+                Lite以上で再開できます。
+              </p>
+            </div>
+          ) : null}
 
           {needsActiveCharacterSelection ? (
             <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
@@ -824,6 +1017,7 @@ export default async function ChatPage({
 
           {!needsActiveCharacterSelection &&
           !isWaitingThreadCharacter &&
+          !isGroupChatLocked &&
           shouldShowLimitNotice ? (
             <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
               <p className="text-xs font-black text-[#FDE68A]">
@@ -840,13 +1034,17 @@ export default async function ChatPage({
             <textarea
               name="content"
               placeholder={
-                needsActiveCharacterSelection
-                  ? "先に使うキャラクターを選んでください"
-                  : isWaitingThreadCharacter
-                    ? "このキャラクターは現在待機中です"
-                    : isMessageInputDisabled
-                      ? "本日のFreeメッセージ上限に達しました"
-                      : `${characterName}に話しかける`
+                isGroupChatLocked
+                  ? "グループチャットはLite以上で再開できます"
+                  : needsActiveCharacterSelection
+                    ? "先に使うキャラクターを選んでください"
+                    : isWaitingThreadCharacter
+                      ? "このキャラクターは現在待機中です"
+                      : isMessageInputDisabled
+                        ? "本日のFreeメッセージ上限に達しました"
+                        : isGroupChat
+                          ? "グループに話しかける"
+                          : `${characterName}に話しかける`
               }
               rows={3}
               required
@@ -857,7 +1055,11 @@ export default async function ChatPage({
 
           <div className="mt-3 flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              {needsActiveCharacterSelection ? (
+              {isGroupChatLocked ? (
+                <p className="truncate text-[11px] text-[#FACC15]">
+                  Lite以上でグループ再開
+                </p>
+              ) : needsActiveCharacterSelection ? (
                 <p className="truncate text-[11px] text-[#FACC15]">
                   使うキャラの選択が必要です
                 </p>
@@ -889,11 +1091,13 @@ export default async function ChatPage({
                 disabled={isMessageInputDisabled}
                 className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
               >
-                {isWaitingThreadCharacter
-                  ? "待機中"
-                  : isMessageInputDisabled
-                    ? "今日はここまで"
-                    : "送信"}
+                {isGroupChatLocked
+                  ? "ロック中"
+                  : isWaitingThreadCharacter
+                    ? "待機中"
+                    : isMessageInputDisabled
+                      ? "今日はここまで"
+                      : "送信"}
               </button>
             )}
           </div>
