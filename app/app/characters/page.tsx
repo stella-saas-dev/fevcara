@@ -33,7 +33,17 @@ type CharacterLimitConfig = {
   planTier: PlanTier;
   limit: number;
   label: string;
+  description: string;
 };
+
+type TrialBoostStatus = {
+  isActive: boolean;
+  hasEnded: boolean;
+  remainingHours: number;
+  endsAt: Date | null;
+};
+
+const FREE_TRIAL_BOOST_HOURS = 72;
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
@@ -57,7 +67,58 @@ function getPlanTier(plan: string | null): PlanTier {
   return "free";
 }
 
-function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
+function getFreeTrialBoostStatus({
+  plan,
+  userCreatedAt,
+}: {
+  plan: string | null;
+  userCreatedAt: string | undefined;
+}): TrialBoostStatus {
+  const planTier = getPlanTier(plan);
+
+  if (planTier !== "free" || !userCreatedAt) {
+    return {
+      isActive: false,
+      hasEnded: false,
+      remainingHours: 0,
+      endsAt: null,
+    };
+  }
+
+  const createdAtTime = new Date(userCreatedAt).getTime();
+
+  if (Number.isNaN(createdAtTime)) {
+    return {
+      isActive: false,
+      hasEnded: false,
+      remainingHours: 0,
+      endsAt: null,
+    };
+  }
+
+  const endsAtTime =
+    createdAtTime + FREE_TRIAL_BOOST_HOURS * 60 * 60 * 1000;
+  const nowTime = Date.now();
+  const isActive = nowTime < endsAtTime;
+  const remainingHours = isActive
+    ? Math.max(1, Math.ceil((endsAtTime - nowTime) / (60 * 60 * 1000)))
+    : 0;
+
+  return {
+    isActive,
+    hasEnded: !isActive,
+    remainingHours,
+    endsAt: new Date(endsAtTime),
+  };
+}
+
+function getCharacterLimitConfig({
+  plan,
+  isTrialBoostActive,
+}: {
+  plan: string | null;
+  isTrialBoostActive: boolean;
+}): CharacterLimitConfig {
   const planTier = getPlanTier(plan);
 
   if (planTier === "premium") {
@@ -65,6 +126,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 10,
       label: "Premium",
+      description: "Premiumでは、最大10人までキャラクターを利用できます。",
     };
   }
 
@@ -73,6 +135,17 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
       planTier,
       limit: 3,
       label: "Lite",
+      description: "Liteでは、最大3人までキャラクターを利用できます。",
+    };
+  }
+
+  if (isTrialBoostActive) {
+    return {
+      planTier,
+      limit: 3,
+      label: "Free Trial",
+      description:
+        "初回72時間トライアル中です。今だけキャラクター3人とグループチャットを体験できます。",
     };
   }
 
@@ -80,6 +153,7 @@ function getCharacterLimitConfig(plan: string | null): CharacterLimitConfig {
     planTier,
     limit: 1,
     label: "Free",
+    description: "Freeでは、話せるキャラクターは1人です。",
   };
 }
 
@@ -168,8 +242,19 @@ export default async function CharactersPage({
     character_limit_choice_locked: false,
   }) as ProfileForCharacterAccess;
 
-  const limitConfig = getCharacterLimitConfig(profile.plan);
+  const trialBoost = getFreeTrialBoostStatus({
+    plan: profile.plan,
+    userCreatedAt: user.created_at,
+  });
+
+  const limitConfig = getCharacterLimitConfig({
+    plan: profile.plan,
+    isTrialBoostActive: trialBoost.isActive,
+  });
+
   const isFreePlan = limitConfig.planTier === "free";
+  const isTrialBoostActive = isFreePlan && trialBoost.isActive;
+  const isTrialBoostEnded = isFreePlan && trialBoost.hasEnded;
 
   const { data } = await supabase
     .from("characters")
@@ -192,15 +277,21 @@ export default async function CharactersPage({
 
   const isLimitReached = characterCount >= limitConfig.limit;
   const isOverLimit = characterCount > limitConfig.limit;
+
   const needsActiveCharacterSelection =
     isFreePlan &&
+    !isTrialBoostActive &&
     isOverLimit &&
     !profile.character_limit_choice_locked;
 
   const isFreeCharacterLocked =
     isFreePlan &&
+    !isTrialBoostActive &&
     Boolean(profile.character_limit_choice_locked) &&
     Boolean(profile.active_character_id);
+
+  const canUseRelationshipFeatures =
+    !isFreePlan || isTrialBoostActive;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -221,13 +312,28 @@ export default async function CharactersPage({
               <p className="text-xs font-black tracking-[0.2em] text-[#7DD3FC]">
                 CURRENT PLAN
               </p>
-              <h2 className="mt-2 text-xl font-black">{limitConfig.label}</h2>
-              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-                {limitConfig.label}プランでは、キャラクターを
-                <span className="font-black text-[#F4F1EA]">
-                  {limitConfig.limit}人
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={[
+                    "rounded-full border px-3 py-1 text-xs font-black",
+                    isTrialBoostActive
+                      ? "border-[#FACC15]/30 bg-[#FACC15]/10 text-[#FDE68A]"
+                      : "border-[#BEF264]/25 bg-[#BEF264]/10 text-[#D9F99D]",
+                  ].join(" ")}
+                >
+                  {limitConfig.label}
                 </span>
-                まで利用できます。
+
+                {isTrialBoostActive ? (
+                  <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-3 py-1 text-xs font-black text-[#BAE6FD]">
+                    残り約{trialBoost.remainingHours}時間
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
+                {limitConfig.description}
               </p>
             </div>
 
@@ -245,14 +351,40 @@ export default async function CharactersPage({
             </div>
           </div>
 
+          {isTrialBoostActive ? (
+            <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
+              <p className="text-sm font-black text-[#FDE68A]">
+                初回72時間トライアル中
+              </p>
+              <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+                今だけキャラクター3人とグループチャットを体験できます。
+                トライアル終了後、Freeプランで話せるキャラクターは1人になります。
+                作成したキャラクターは削除されません。
+              </p>
+            </div>
+          ) : null}
+
+          {isTrialBoostEnded && characterCount >= 2 ? (
+            <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
+              <p className="text-sm font-black text-[#FDE68A]">
+                初回トライアルは終了しました
+              </p>
+              <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+                Freeプランでは話せるキャラクターは1人です。
+                作成したキャラクターは削除されません。
+                Liteにすると、待機中のキャラクターやグループチャットを再開できます。
+              </p>
+            </div>
+          ) : null}
+
           {needsActiveCharacterSelection ? (
             <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
               <p className="text-sm font-black text-[#FDE68A]">
                 Freeで使うキャラクターを選んでください
               </p>
               <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-                ダウングレード後もキャラクターは削除されません。
-                Free中に話せるキャラクターを一度だけ選択します。
+                Free中に話せるキャラクターを1人だけ選択します。
+                選ばなかったキャラクターは待機中になりますが、削除はされません。
               </p>
 
               <Link
@@ -270,7 +402,8 @@ export default async function CharactersPage({
                 Freeで使うキャラクターは選択済みです
               </p>
               <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-                選ばなかったキャラクターは待機中です。Lite以上で再開できる設計にします。
+                選ばなかったキャラクターは待機中です。
+                Lite以上で再び利用できるようにします。
               </p>
             </div>
           ) : null}
@@ -294,7 +427,7 @@ export default async function CharactersPage({
           </div>
         ) : null}
 
-        {characters.length >= 2 && !isFreePlan ? (
+        {characters.length >= 2 && canUseRelationshipFeatures ? (
           <Link
             href="/app/relationships"
             className="mt-4 block rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-5 py-4 text-center text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
@@ -338,6 +471,12 @@ export default async function CharactersPage({
                           <p className="break-words text-xl font-black">
                             {name}
                           </p>
+
+                          {isTrialBoostActive ? (
+                            <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                              Trial中
+                            </span>
+                          ) : null}
 
                           {isActiveCharacter && isFreeCharacterLocked ? (
                             <span className="rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-3 py-1 text-[10px] font-black text-[#D9F99D]">
@@ -427,7 +566,9 @@ export default async function CharactersPage({
               現在のプランでは新しいキャラクターを追加できません。
             </p>
             <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
-              Lite以上で、複数キャラクターやグループチャットを使えるようにする予定です。
+              {isTrialBoostActive
+                ? "初回トライアルではキャラクターを3人まで作成できます。Liteにすると、トライアル後も3人とグループチャットを続けられます。"
+                : "Lite以上で、複数キャラクターやグループチャットを使えるようにする予定です。"}
             </p>
           </div>
         ) : null}
