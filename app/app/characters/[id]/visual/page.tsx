@@ -210,6 +210,20 @@ export default async function CharacterVisualPage({
     .eq("user_id", user.id);
 
   const characterName = getCharacterName(character);
+  const savedImageCount = totalImageCount ?? 0;
+  const saveLimitPercent = Math.min(
+    100,
+    Math.round((savedImageCount / planConfig.imageSaveLimit) * 100),
+  );
+  const isNearSaveLimit = saveLimitPercent >= 80;
+  const selectedBackgroundImage = images.find((image) =>
+    Boolean(image.is_background_selected),
+  );
+  const selectedIconSourceImage = images.find((image) =>
+    Boolean(image.is_icon_selected),
+  );
+  const currentBackgroundUrl = character.image_url || selectedBackgroundImage?.image_url;
+  const currentIconUrl = character.icon_image_url || selectedIconSourceImage?.image_url;
   const canStartEncounter =
     Boolean(character.background_image_id) && Boolean(character.icon_image_id);
   const isEncounterCompleted = character.status === "active";
@@ -232,16 +246,48 @@ export default async function CharacterVisualPage({
             ← キャラクター一覧へ戻る
           </Link>
 
-          <p className="mt-8 text-sm font-semibold tracking-[0.24em] text-[#FACC15]">
-            CHARACTER VISUAL
-          </p>
-          <h1 className="mt-2 text-3xl font-black">
-            {characterName}の姿を決める
-          </h1>
-          <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
-            絵柄プリセットを選んで画像を生成し、出会いイベントで使う背景画像と、
-            チャットで使うアイコン画像を選びます。
-          </p>
+          <div className="mt-8 rounded-[2rem] border border-white/10 bg-[#111827]/70 p-5 shadow-2xl shadow-black/30">
+            <div className="flex items-start gap-4">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-3xl border border-white/15 bg-white/[0.05] shadow-lg shadow-black/30">
+                {currentIconUrl ? (
+                  <img
+                    src={currentIconUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : currentBackgroundUrl ? (
+                  <img
+                    src={currentBackgroundUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1E293B] to-[#0B1020] text-xl font-black text-[#BEF264]">
+                    {characterName.slice(0, 1)}
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
+                  CHARACTER VISUAL
+                </p>
+                <h1 className="mt-2 break-words text-3xl font-black leading-tight">
+                  {characterName}の姿を決める
+                </h1>
+                <p className="mt-2 text-xs font-bold text-[#A7B0C0]">
+                  {isEncounterCompleted
+                    ? "出会い済み：変更後は詳細ページへ戻ります"
+                    : "出会い前：背景とアイコンを選ぶと会いに行けます"}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm leading-7 text-[#A7B0C0]">
+              絵柄・背景・構図を選んで画像を生成し、背景用画像とアイコン用画像を決めます。
+              ここで選んだ姿が、ホーム・詳細・チャット画面でキャラクターの存在感になります。
+            </p>
+          </div>
         </header>
 
         {query.error ? (
@@ -260,14 +306,14 @@ export default async function CharacterVisualPage({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black tracking-[0.2em] text-[#7DD3FC]">
-                IMAGE CREDITS
+                IMAGE STATUS
               </p>
               <h2 className="mt-2 text-2xl font-black">
                 残り {balance} クレジット
               </h2>
               <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-                {planConfig.label}プラン / 保存上限{" "}
-                {totalImageCount ?? 0} / {planConfig.imageSaveLimit} 枚
+                {planConfig.label}プラン / 保存上限 {savedImageCount} /{" "}
+                {planConfig.imageSaveLimit} 枚
               </p>
             </div>
 
@@ -279,10 +325,79 @@ export default async function CharacterVisualPage({
             </div>
           </div>
 
-          <p className="mt-4 text-xs leading-6 text-[#7D8AA3]">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#BEF264] to-[#7DD3FC]"
+              style={{ width: `${saveLimitPercent}%` }}
+            />
+          </div>
+
+          <p
+            className={[
+              "mt-3 text-xs leading-6",
+              isNearSaveLimit ? "text-[#FDE68A]" : "text-[#7D8AA3]",
+            ].join(" ")}
+          >
             Medium品質は1クレジット、High品質は4クレジット消費します。
             High品質はLite以上で利用できます。
+            {isNearSaveLimit
+              ? " 保存上限が近いので、不要な画像は整理しておくと安心です。"
+              : ""}
           </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div
+              className={[
+                "rounded-3xl border p-3",
+                currentBackgroundUrl
+                  ? "border-[#BEF264]/25 bg-[#BEF264]/10"
+                  : "border-white/10 bg-white/[0.04]",
+              ].join(" ")}
+            >
+              <p className="text-[11px] font-black tracking-[0.16em] text-[#BEF264]">
+                BACKGROUND
+              </p>
+              <div className="mt-3 aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                {currentBackgroundUrl ? (
+                  <img
+                    src={currentBackgroundUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center px-3 text-center text-[11px] leading-5 text-[#7D8AA3]">
+                    未選択
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className={[
+                "rounded-3xl border p-3",
+                currentIconUrl
+                  ? "border-[#7DD3FC]/25 bg-[#7DD3FC]/10"
+                  : "border-white/10 bg-white/[0.04]",
+              ].join(" ")}
+            >
+              <p className="text-[11px] font-black tracking-[0.16em] text-[#7DD3FC]">
+                ICON
+              </p>
+              <div className="mt-3 aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                {currentIconUrl ? (
+                  <img
+                    src={currentIconUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center px-3 text-center text-[11px] leading-5 text-[#7D8AA3]">
+                    未選択
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
         <form
@@ -294,89 +409,119 @@ export default async function CharacterVisualPage({
           <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
             GENERATE
           </p>
-          <h2 className="mt-2 text-xl font-black">絵柄を選んで生成する</h2>
+          <h2 className="mt-2 text-xl font-black">新しい画像を生成する</h2>
           <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-            絵柄と背景を指定して、キャラクター画像を生成します。
-            生成後に、背景用とアイコン用をそれぞれ選べます。
+            1枚生成したあと、保存済み画像から「背景用」と「アイコン用」を選びます。
+            迷ったら、まずは全身・Mediumで背景用を作るのがおすすめです。
           </p>
 
-          <div className="mt-5 grid gap-3">
-            {artStyles.map((style, index) => (
-              <label
-                key={style.id}
-                className="block cursor-pointer rounded-3xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-[#BEF264]/40 hover:bg-white/[0.07]"
-              >
-                <div className="flex items-center gap-4">
-                  <input
-                    type="radio"
-                    name="artStyle"
-                    value={style.slug}
-                    defaultChecked={
-                      style.slug === defaultArtStyleSlug ||
-                      (!defaultArtStyleSlug && index === 0)
-                    }
-                    className="shrink-0 accent-[#BEF264]"
-                  />
+          <div className="mt-5 rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#BEF264] text-xs font-black text-[#07111F]">
+                1
+              </span>
+              <div>
+                <p className="text-sm font-black text-[#D9F99D]">
+                  絵柄プリセット
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                  FevCara用の安全なオリジナル絵柄だけを選べます。
+                </p>
+              </div>
+            </div>
 
-                  <div
-                    className={[
-                      "relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-lg shadow-black/30",
-                      getPreviewClass(style.slug),
-                    ].join(" ")}
-                  >
-                    <div className="absolute bottom-0 left-1/2 h-8 w-8 -translate-x-1/2 rounded-t-full bg-black/25" />
-                    <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border border-white/20 bg-white/15 backdrop-blur-sm" />
-                  </div>
+            <div className="mt-4 grid gap-3">
+              {artStyles.map((style, index) => (
+                <label
+                  key={style.id}
+                  className="block cursor-pointer rounded-3xl border border-white/10 bg-[#0B1020]/40 p-4 transition hover:border-[#BEF264]/40 hover:bg-white/[0.07]"
+                >
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="radio"
+                      name="artStyle"
+                      value={style.slug}
+                      defaultChecked={
+                        style.slug === defaultArtStyleSlug ||
+                        (!defaultArtStyleSlug && index === 0)
+                      }
+                      className="shrink-0 accent-[#BEF264]"
+                    />
 
-                  <div>
-                    <p className="text-sm font-black text-[#F4F1EA]">
-                      {style.name ?? style.slug}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
-                      {style.description ?? "オリジナルキャラクター用の絵柄です。"}
-                    </p>
+                    <div
+                      className={[
+                        "relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-lg shadow-black/30",
+                        getPreviewClass(style.slug),
+                      ].join(" ")}
+                    >
+                      <div className="absolute bottom-0 left-1/2 h-8 w-8 -translate-x-1/2 rounded-t-full bg-black/25" />
+                      <div className="absolute left-1/2 top-3 h-7 w-7 -translate-x-1/2 rounded-full border border-white/20 bg-white/15 backdrop-blur-sm" />
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-black text-[#F4F1EA]">
+                        {style.name ?? style.slug}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                        {style.description ??
+                          "オリジナルキャラクター用の絵柄です。"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="mt-5 rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4">
-            <label className="block">
-              <span className="text-sm font-black text-[#BAE6FD]">
-                背景・シーン設定
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#7DD3FC] text-xs font-black text-[#07111F]">
+                2
               </span>
+              <div>
+                <p className="text-sm font-black text-[#BAE6FD]">
+                  背景・シーン設定
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                  キャラの後ろにある場所や光を指定します。
+                </p>
+              </div>
+            </div>
 
-              <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-                キャラクターの後ろに描きたい背景を指定できます。
-                未入力の場合は、キャラクターが見やすいシンプルな背景で生成します。
-              </p>
-
+            <label className="mt-4 block">
               <textarea
                 name="backgroundPrompt"
-                rows={4}
+                rows={5}
                 maxLength={500}
-                placeholder="例：星空の下、淡い月明かりが差す静かな屋上。背景は幻想的で、キャラクターの表情が見やすい構図。"
-                className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
+                placeholder="例：星空の下、淡い月明かりが差す静かな屋上。背景は幻想的で、キャラクターの顔・髪・服・シルエットが見やすい構図。"
+                className="w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] focus:border-[#7DD3FC]/60"
               />
             </label>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] leading-5 text-[#A7B0C0]">
+            <div className="mt-3 grid gap-2 text-[11px] leading-5 text-[#A7B0C0]">
               <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                星空、海辺、森、教室、部屋、街角など
+                おすすめ：星空、海辺、森、教室、部屋、街角、図書館、屋上、夕暮れ、月明かり
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                実在人物・既存作品風・写真風は指定不可
+              <div className="rounded-2xl border border-red-300/20 bg-red-400/10 p-3 text-red-100/90">
+                避ける指定：実在人物、既存キャラ、特定作品風、特定作家風、写真風、フォトリアル
               </div>
             </div>
           </div>
 
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
-            <p className="text-sm font-black text-[#F4F1EA]">構図</p>
-            <p className="mt-2 text-xs leading-5 text-[#A7B0C0]">
-              背景・イベント用なら全身、アイコン用なら上半身が向いています。
-              同じキャラクターで複数構図を生成して使い分けできます。
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#FACC15] text-xs font-black text-[#07111F]">
+                3
+              </span>
+              <div>
+                <p className="text-sm font-black text-[#FDE68A]">
+                  構図と品質
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                  使いたい用途に合わせて選びます。
+                </p>
+              </div>
+            </div>
 
             <div className="mt-4 grid gap-3">
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#BEF264]/25 bg-[#BEF264]/10 p-4">
@@ -389,10 +534,10 @@ export default async function CharacterVisualPage({
                 />
                 <span>
                   <span className="block text-sm font-black text-[#D9F99D]">
-                    全身
+                    全身 / 背景・出会いイベント向き
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                    頭から足先まで入る構図。背景用・出会いイベント用におすすめです。
+                    頭から足先まで入る構図。ホームや詳細の正方形カードにも使いやすいです。
                   </span>
                 </span>
               </label>
@@ -406,18 +551,14 @@ export default async function CharacterVisualPage({
                 />
                 <span>
                   <span className="block text-sm font-black text-[#BAE6FD]">
-                    上半身
+                    上半身 / アイコン向き
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                    顔・髪・肩まわりが大きく見える構図。アイコン用におすすめです。
+                    顔・髪・肩まわりが大きく見える構図。生成後にトリミングしてアイコンにします。
                   </span>
                 </span>
               </label>
             </div>
-          </div>
-
-          <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
-            <p className="text-sm font-black text-[#F4F1EA]">画像品質</p>
 
             <div className="mt-4 grid gap-3">
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -430,10 +571,10 @@ export default async function CharacterVisualPage({
                 />
                 <span>
                   <span className="block text-sm font-black text-[#F4F1EA]">
-                    Medium
+                    Medium / 1クレジット
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                    1クレジット。通常はこちらがおすすめです。
+                    まず試すならこちら。MVPでは基本品質として扱います。
                   </span>
                 </span>
               </label>
@@ -455,10 +596,10 @@ export default async function CharacterVisualPage({
                 />
                 <span>
                   <span className="block text-sm font-black text-[#FDE68A]">
-                    High
+                    High / 4クレジット
                   </span>
                   <span className="mt-1 block text-xs leading-5 text-[#A7B0C0]">
-                    4クレジット。Lite以上で利用できます。
+                    Lite以上で利用できます。決定版にしたい画像向きです。
                   </span>
                 </span>
               </label>
@@ -472,15 +613,22 @@ export default async function CharacterVisualPage({
           >
             画像を生成する
           </button>
+
+          {balance <= 0 ? (
+            <p className="mt-3 text-center text-xs font-bold leading-5 text-[#FDE68A]">
+              クレジットが不足しています。次回付与、または追加購入導線の実装後に生成できます。
+            </p>
+          ) : null}
         </form>
 
         <section className="mt-6 rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
           <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
             GENERATED IMAGES
           </p>
-          <h2 className="mt-2 text-xl font-black">生成した画像</h2>
+          <h2 className="mt-2 text-xl font-black">保存済み画像</h2>
           <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-            同じ画像を背景用・アイコン用の両方に選んでも大丈夫です。
+            画像ごとに、背景用にするか、アイコンとしてトリミングするかを選びます。
+            同じ画像を両方に使っても大丈夫です。
           </p>
 
           {images.length === 0 ? (
@@ -489,7 +637,7 @@ export default async function CharacterVisualPage({
                 まだ画像がありません
               </p>
               <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
-                まずは絵柄を選んで、最初の1枚を生成してみましょう。
+                まずは絵柄・背景・構図を選んで、最初の1枚を生成してみましょう。
               </p>
             </div>
           ) : (
@@ -499,20 +647,33 @@ export default async function CharacterVisualPage({
                   image.is_background_selected,
                 );
                 const isIconSelected = Boolean(image.is_icon_selected);
+                const selectionLabel =
+                  isBackgroundSelected && isIconSelected
+                    ? "背景用・アイコン元画像"
+                    : isBackgroundSelected
+                      ? "背景用画像"
+                      : isIconSelected
+                        ? "アイコン元画像"
+                        : "未使用";
 
                 return (
                   <article
                     key={image.id}
-                    className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04]"
+                    className={[
+                      "overflow-hidden rounded-[2rem] border bg-white/[0.04]",
+                      isBackgroundSelected || isIconSelected
+                        ? "border-[#BEF264]/25 shadow-lg shadow-[#BEF264]/5"
+                        : "border-white/10",
+                    ].join(" ")}
                   >
-                    <div className="relative aspect-square bg-white">
+                    <div className="relative aspect-square bg-[#0B1020]">
                       <img
                         src={image.image_url}
                         alt=""
                         className="h-full w-full object-cover"
                       />
 
-                      <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                      <div className="absolute inset-x-0 top-0 flex flex-wrap gap-2 bg-gradient-to-b from-black/70 to-transparent p-3">
                         {isBackgroundSelected ? (
                           <span className="rounded-full bg-[#BEF264] px-3 py-1 text-[10px] font-black text-[#07111F]">
                             背景用
@@ -521,24 +682,35 @@ export default async function CharacterVisualPage({
 
                         {isIconSelected ? (
                           <span className="rounded-full bg-[#7DD3FC] px-3 py-1 text-[10px] font-black text-[#07111F]">
-                            アイコン用
+                            アイコン元
+                          </span>
+                        ) : null}
+
+                        {!isBackgroundSelected && !isIconSelected ? (
+                          <span className="rounded-full bg-black/50 px-3 py-1 text-[10px] font-black text-white/80 backdrop-blur">
+                            未使用
                           </span>
                         ) : null}
                       </div>
                     </div>
 
                     <div className="p-4">
-                      <div className="flex items-center justify-between gap-3 text-xs text-[#A7B0C0]">
-                        <span>
-                          {image.image_quality === "high"
-                            ? "High"
-                            : "Medium"}{" "}
-                          / {image.credit_cost ?? 1} credit
-                        </span>
-                        <span>{formatDate(image.created_at)}</span>
+                      <div className="flex items-start justify-between gap-3 text-xs text-[#A7B0C0]">
+                        <div>
+                          <p className="font-black text-[#F4F1EA]">
+                            {selectionLabel}
+                          </p>
+                          <p className="mt-1">
+                            {image.image_quality === "high"
+                              ? "High"
+                              : "Medium"}{" "}
+                            / {image.credit_cost ?? 1} credit
+                          </p>
+                        </div>
+                        <span className="shrink-0">{formatDate(image.created_at)}</span>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="mt-4 grid gap-3">
                         <form action={selectCharacterVisual}>
                           <input
                             type="hidden"
@@ -560,7 +732,9 @@ export default async function CharacterVisualPage({
                                 : "border border-white/10 bg-white/[0.04] text-[#F4F1EA] hover:border-[#BEF264]/35",
                             ].join(" ")}
                           >
-                            背景用にする
+                            {isBackgroundSelected
+                              ? "背景用に選択中"
+                              : "背景用にする"}
                           </button>
                         </form>
 
@@ -573,7 +747,9 @@ export default async function CharacterVisualPage({
                               : "border border-white/10 bg-white/[0.04] text-[#F4F1EA] hover:border-[#7DD3FC]/35",
                           ].join(" ")}
                         >
-                          {isIconSelected ? "アイコンを再調整" : "アイコンを調整"}
+                          {isIconSelected
+                            ? "アイコンを再トリミング"
+                            : "アイコンとしてトリミング"}
                         </Link>
                       </div>
 
@@ -636,10 +812,26 @@ export default async function CharacterVisualPage({
                   : "border-white/10 bg-white/[0.04]",
               ].join(" ")}
             >
-              <p className="text-sm font-black">
-                背景用画像：
-                {character.background_image_id ? "選択済み" : "未選択"}
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  {currentBackgroundUrl ? (
+                    <img
+                      src={currentBackgroundUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <p className="text-sm font-black">
+                    背景用画像：
+                    {character.background_image_id ? "選択済み" : "未選択"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                    ホーム・詳細・チャット背景のメイン画像になります。
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div
@@ -650,10 +842,26 @@ export default async function CharacterVisualPage({
                   : "border-white/10 bg-white/[0.04]",
               ].join(" ")}
             >
-              <p className="text-sm font-black">
-                アイコン用画像：
-                {character.icon_image_id ? "選択済み" : "未選択"}
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  {currentIconUrl ? (
+                    <img
+                      src={currentIconUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <p className="text-sm font-black">
+                    アイコン用画像：
+                    {character.icon_image_id ? "選択済み" : "未選択"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                    一覧・チャット吹き出し横に表示されます。
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -663,7 +871,7 @@ export default async function CharacterVisualPage({
                 href={`/app/characters/${character.id}`}
                 className="mt-5 block w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
               >
-                設定を保存する
+                設定を保存して詳細へ戻る
               </Link>
             ) : (
               <form action={startEncounterFromVisual} className="mt-5">
