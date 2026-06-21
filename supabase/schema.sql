@@ -1042,3 +1042,91 @@ set
   safety_note = excluded.safety_note,
   is_active = excluded.is_active,
   sort_order = excluded.sort_order;
+
+
+
+
+  create table if not exists public.group_chat_members (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  character_id uuid not null references public.characters(id) on delete cascade,
+  display_order integer not null default 0,
+  joined_at timestamp with time zone not null default now(),
+
+  constraint group_chat_members_unique_character unique (thread_id, character_id)
+);
+
+create index if not exists group_chat_members_thread_id_idx
+  on public.group_chat_members(thread_id);
+
+create index if not exists group_chat_members_user_id_idx
+  on public.group_chat_members(user_id);
+
+create index if not exists group_chat_members_character_id_idx
+  on public.group_chat_members(character_id);
+
+alter table public.group_chat_members enable row level security;
+
+drop policy if exists "Users can read own group chat members"
+  on public.group_chat_members;
+
+create policy "Users can read own group chat members"
+  on public.group_chat_members
+  for select
+  using (user_id = auth.uid());
+
+drop policy if exists "Users can insert own group chat members"
+  on public.group_chat_members;
+
+create policy "Users can insert own group chat members"
+  on public.group_chat_members
+  for insert
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.chat_threads t
+      where t.id = thread_id
+        and t.user_id = auth.uid()
+        and t.chat_type = 'group'
+    )
+    and exists (
+      select 1
+      from public.characters c
+      where c.id = character_id
+        and c.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can update own group chat members"
+  on public.group_chat_members;
+
+create policy "Users can update own group chat members"
+  on public.group_chat_members
+  for update
+  using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1
+      from public.chat_threads t
+      where t.id = thread_id
+        and t.user_id = auth.uid()
+        and t.chat_type = 'group'
+    )
+    and exists (
+      select 1
+      from public.characters c
+      where c.id = character_id
+        and c.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete own group chat members"
+  on public.group_chat_members;
+
+create policy "Users can delete own group chat members"
+  on public.group_chat_members
+  for delete
+  using (user_id = auth.uid());

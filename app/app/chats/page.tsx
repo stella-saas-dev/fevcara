@@ -292,6 +292,18 @@ export default async function ChatsPage() {
           </div>
         </header>
 
+        <Link
+          href="/app/chats/group/new"
+          className="mt-5 block rounded-[1.75rem] border border-[#7DD3FC]/25 bg-[#7DD3FC]/12 px-5 py-4 text-center shadow-xl shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
+        >
+          <span className="block text-sm font-black text-[#BAE6FD]">
+            グループチャットを作る
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
+            Lite / Premium / 初回72時間トライアル中に利用できます
+          </span>
+        </Link>
+
         {needsActiveCharacterSelection ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
@@ -369,6 +381,9 @@ export default async function ChatsPage() {
               const characterName = getCharacterName(character);
               const latestMessage = latestMessageMap.get(thread.id);
               const isGroupChat = thread.chat_type === "group";
+              const threadDisplayName = isGroupChat
+                ? thread.title || "グループチャット"
+                : characterName;
               const characterIconUrl =
                 !isGroupChat && character?.icon_image_url
                   ? character.icon_image_url
@@ -442,7 +457,7 @@ export default async function ChatsPage() {
                                   : "text-[#F4F1EA]",
                               ].join(" ")}
                             >
-                              {characterName}
+                              {threadDisplayName}
                             </p>
 
                             {isGroupChat ? (
@@ -472,6 +487,10 @@ export default async function ChatsPage() {
                             <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
                               履歴のみ表示できます
                             </p>
+                                                    ) : isGroupChat ? (
+                            <p className="mt-1 text-xs font-semibold text-[#7DD3FC]">
+                              GROUP CHAT
+                            </p>
                           ) : character?.role_name ? (
                             <p className="mt-1 truncate text-xs font-semibold text-[#D9F99D]">
                               {character.role_name}
@@ -496,7 +515,7 @@ export default async function ChatsPage() {
                             : "text-[#C9D2E3]",
                         ].join(" ")}
                       >
-                        {getMessagePreview(latestMessage, characterName)}
+                        {getMessagePreview(latestMessage, threadDisplayName)}
                       </p>
 
                       {isSelectionRequiredThread ? (
