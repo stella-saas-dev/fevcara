@@ -31,6 +31,21 @@ type ChatThreadRow = {
   updated_at: string;
 };
 
+type AutonomousChatNotificationRow = {
+  id: string;
+  title: string;
+  body: string;
+  link_path: string | null;
+  related_thread_id: string | null;
+  created_at: string;
+};
+
+type NotificationThreadRow = {
+  id: string;
+  title: string | null;
+  chat_type: string | null;
+};
+
 type PlanTier = "free" | "premium_lite" | "premium";
 
 type CharacterLimitConfig = {
@@ -534,6 +549,46 @@ export default async function AppHomePage() {
     ? `Freeプランでは話せるキャラクターは1人です。作成したキャラクターは削除されません。現在${characterCount}人いるので、今話す1人を選んでください。`
     : `現在キャラクターが${characterCount}人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。`;
 
+    const { data: autonomousNotificationData } = await supabase
+    .from("notifications")
+    .select("id, title, body, link_path, related_thread_id, created_at")
+    .eq("user_id", user.id)
+    .eq("type", "autonomous_chat")
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const autonomousNotification =
+    (autonomousNotificationData ?? null) as AutonomousChatNotificationRow | null;
+
+  let autonomousNotificationThread: NotificationThreadRow | null = null;
+
+  if (autonomousNotification?.related_thread_id) {
+    const { data: notificationThreadData } = await supabase
+      .from("chat_threads")
+      .select("id, title, chat_type")
+      .eq("id", autonomousNotification.related_thread_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    autonomousNotificationThread =
+      (notificationThreadData ?? null) as NotificationThreadRow | null;
+  }
+
+  const shouldShowAutonomousChatCard =
+    Boolean(autonomousNotification) &&
+    autonomousNotificationThread?.chat_type === "group";
+
+  const autonomousGroupName =
+    autonomousNotificationThread?.title || "グループチャット";
+
+  const autonomousChatHref =
+    autonomousNotification?.link_path ||
+    (autonomousNotification?.related_thread_id
+      ? `/app/chat/${autonomousNotification.related_thread_id}`
+      : "/app/chats");
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
       <section className="mx-auto w-full max-w-md">
@@ -634,6 +689,47 @@ export default async function AppHomePage() {
               Free通常枠：{monthlyMessageText}。AI返信は消費に含まれません。
             </p>
           </div>
+        ) : null}
+
+                {shouldShowAutonomousChatCard && autonomousNotification ? (
+          <section className="mt-5 overflow-hidden rounded-[2rem] border border-[#7DD3FC]/25 bg-[#0F172A]/80 p-5 shadow-2xl shadow-[#7DD3FC]/10">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-black tracking-[0.16em] text-[#7DD3FC]">
+                  NEW CHAT
+                </p>
+                <h2 className="mt-2 text-xl font-black leading-tight text-white">
+                  キャラクターたちが
+                  <br />
+                  おしゃべりをしています
+                </h2>
+              </div>
+
+              <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 text-xl shadow-lg shadow-[#7DD3FC]/10">
+                💬
+                <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0F172A] bg-[#BEF264]" />
+              </span>
+            </div>
+
+            <p className="mt-4 text-sm leading-7 text-[#E2E8F0]">
+              「{autonomousGroupName}」で新しい会話がありました。
+            </p>
+
+            {autonomousNotification.body ? (
+              <div className="mt-4 rounded-3xl border border-white/10 bg-black/20 p-4">
+                <p className="line-clamp-3 text-xs leading-6 text-[#CBD5E1]">
+                  {autonomousNotification.body}
+                </p>
+              </div>
+            ) : null}
+
+            <Link
+              href={autonomousChatHref}
+              className="mt-5 block rounded-2xl bg-gradient-to-r from-[#7DD3FC] to-[#BEF264] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+            >
+              会話をのぞく
+            </Link>
+          </section>
         ) : null}
 
         <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[#111827]/80 shadow-2xl shadow-black/30">

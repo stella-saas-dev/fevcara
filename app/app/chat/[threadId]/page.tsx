@@ -280,6 +280,18 @@ export default async function ChatPage({
   const thread = threadData as ThreadRow;
   const isGroupChat = thread.chat_type === "group";
 
+    if (isGroupChat) {
+    await supabase
+      .from("notifications")
+      .update({
+        read_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("type", "autonomous_chat")
+      .eq("related_thread_id", thread.id)
+      .is("read_at", null);
+  }
+
   const character = getCharacterFromRelation(thread.characters);
   const singleCharacterName = getCharacterName(character);
 
