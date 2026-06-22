@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import { getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
 import { logout } from "./actions";
 
 type ProfileRow = {
@@ -365,6 +366,38 @@ export default async function AppHomePage() {
     now,
   );
 
+  let trialBoostMessageRemaining: number | null = null;
+  let trialBoostMessageLimit = 300;
+  let monthlyMessageRemaining: number | null = null;
+
+  if (trialBoostStatus.isActive) {
+    try {
+      const messageUsageStatus = await getMessageUsageStatus({
+        supabase,
+        userId: user.id,
+        profile: {
+          id: user.id,
+          plan: profile.plan,
+          created_at: user.created_at ?? null,
+        },
+      });
+
+      trialBoostMessageRemaining = messageUsageStatus.trialBoost.remaining;
+      trialBoostMessageLimit = messageUsageStatus.trialBoost.limit || 300;
+      monthlyMessageRemaining = messageUsageStatus.monthlyRemaining;
+    } catch (error) {
+      console.error("Home message usage status error:", error);
+    }
+  }
+
+  const trialBoostMessageText =
+    trialBoostMessageRemaining === null
+      ? `最大${trialBoostMessageLimit}回`
+      : `あと${trialBoostMessageRemaining}回`;
+
+  const monthlyMessageText =
+    monthlyMessageRemaining === null ? "月250回" : `今月あと${monthlyMessageRemaining}回`;
+
   const limitConfig = getCharacterLimitConfig({
     plan: profile.plan,
     isTrialBoostActive: trialBoostStatus.isActive,
@@ -461,9 +494,7 @@ export default async function AppHomePage() {
   const newestDraftOrAnyCharacter = characters[0] ?? null;
 
   const primaryCharacter = isFreeSingleCharacterMode
-    ? activeCharacter ??
-      activeCharacters[0] ??
-      newestDraftOrAnyCharacter
+    ? activeCharacter ?? activeCharacters[0] ?? newestDraftOrAnyCharacter
     : paidRecommendedActiveCharacter ?? newestDraftOrAnyCharacter;
 
   const primaryThread = primaryCharacter
@@ -579,6 +610,7 @@ export default async function AppHomePage() {
 
             <p className="mt-3 text-sm leading-7 text-[#E2E8F0]">
               今だけキャラクター3人とグループチャットを体験できます。
+              通常Freeの月250メッセージ送信とは別に、72時間限定ボーナスも使えます。
               トライアル終了後、Freeプランで話せるキャラクターは1人になります。
               作成したキャラクターは削除されません。
             </p>
@@ -590,7 +622,17 @@ export default async function AppHomePage() {
               <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#BAE6FD]">
                 グループチャット体験
               </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#FDE68A]">
+                ボーナス送信 {trialBoostMessageText}
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#F4F1EA]">
+                画像ボーナス +6クレジット
+              </div>
             </div>
+
+            <p className="mt-3 text-xs leading-6 text-[#CBD5E1]">
+              Free通常枠：{monthlyMessageText}。AI返信は消費に含まれません。
+            </p>
           </div>
         ) : null}
 

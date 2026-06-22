@@ -47,7 +47,7 @@ function getPlanDescription(plan: string | null) {
   const normalizedPlan = normalizePlan(plan);
 
   if (normalizedPlan.includes("lite")) {
-    return "キャラクター3人、グループチャット、記憶強化を想定したプランです。";
+    return "キャラクター3人、月500メッセージ送信、グループチャット、記憶強化を想定したプランです。";
   }
 
   if (
@@ -55,10 +55,10 @@ function getPlanDescription(plan: string | null) {
     normalizedPlan.includes("pro") ||
     normalizedPlan.includes("paid")
   ) {
-    return "キャラクター10人、複数チーム、高度な相談モードを想定したプランです。";
+    return "キャラクター10人、月1000メッセージ送信、グループチャット強化を想定した上位プランです。";
   }
 
-  return "キャラクター1人、1日10メッセージを基本とする無料プランです。";
+  return "キャラクター1人、月250メッセージ送信を基本とする無料プランです。";
 }
 
 function getUpdatedPlanLabel(plan: string | undefined) {
