@@ -482,9 +482,18 @@ export default async function ChatPage({
 
   const trialRemainingMessages = messageUsageStatus.trialBoost.remaining;
   const monthlyRemainingMessages = messageUsageStatus.monthlyRemaining;
+
+  const purchasedRemainingMessages =
+    messageUsageStatus.purchased.usableRemaining;
+
+  const shouldShowPurchasedMessages =
+    messageUsageStatus.purchased.canUse && purchasedRemainingMessages > 0;
+
   const messageUsageLabel =
-    messageUsageStatus.trialBoost.isActive && trialRemainingMessages > 0
-      ? `Trialあと ${trialRemainingMessages} 通 / 今月あと ${monthlyRemainingMessages} 通`
+  messageUsageStatus.trialBoost.isActive && trialRemainingMessages > 0
+    ? `Trialあと ${trialRemainingMessages} 通 / 今月あと ${monthlyRemainingMessages} 通`
+    : shouldShowPurchasedMessages
+      ? `今月あと ${monthlyRemainingMessages} 通 / 追加あと ${purchasedRemainingMessages} 通`
       : `今月あと ${monthlyRemainingMessages} 通`;
 
   const messageLimitDetailText =
