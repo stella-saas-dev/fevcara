@@ -1162,3 +1162,130 @@ on public.message_credit_purchases
 for select
 to authenticated
 using (auth.uid() = user_id);
+
+
+
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+
+  type text not null default 'general',
+  title text not null,
+  body text not null,
+  link_path text,
+
+  related_thread_id uuid references public.chat_threads(id) on delete set null,
+  related_character_id uuid references public.characters(id) on delete set null,
+
+  metadata jsonb not null default '{}'::jsonb,
+
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_user_id_created_at_idx
+on public.notifications (user_id, created_at desc);
+
+create index if not exists notifications_user_id_read_at_idx
+on public.notifications (user_id, read_at);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own"
+on public.notifications
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "notifications_insert_own" on public.notifications;
+create policy "notifications_insert_own"
+on public.notifications
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own"
+on public.notifications
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+
+create table if not exists public.user_notification_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+
+  in_app_notifications_enabled boolean not null default true,
+  autonomous_chat_enabled boolean not null default true,
+  autonomous_chat_notifications_enabled boolean not null default true,
+
+  email_notifications_enabled boolean not null default false,
+  push_notifications_enabled boolean not null default false,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_notification_settings enable row level security;
+
+drop policy if exists "user_notification_settings_select_own" on public.user_notification_settings;
+create policy "user_notification_settings_select_own"
+on public.user_notification_settings
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "user_notification_settings_insert_own" on public.user_notification_settings;
+create policy "user_notification_settings_insert_own"
+on public.user_notification_settings
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "user_notification_settings_update_own" on public.user_notification_settings;
+create policy "user_notification_settings_update_own"
+on public.user_notification_settings
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+
+create table if not exists public.autonomous_chat_usage (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  thread_id uuid not null references public.chat_threads(id) on delete cascade,
+
+  plan_at_use text not null default 'premium',
+  messages_used integer not null default 1 check (messages_used > 0),
+  status text not null default 'completed',
+
+  metadata jsonb not null default '{}'::jsonb,
+
+  created_at timestamptz not null default now()
+);
+
+create index if not exists autonomous_chat_usage_user_id_created_at_idx
+on public.autonomous_chat_usage (user_id, created_at desc);
+
+create index if not exists autonomous_chat_usage_thread_id_created_at_idx
+on public.autonomous_chat_usage (thread_id, created_at desc);
+
+alter table public.autonomous_chat_usage enable row level security;
+
+drop policy if exists "autonomous_chat_usage_select_own" on public.autonomous_chat_usage;
+create policy "autonomous_chat_usage_select_own"
+on public.autonomous_chat_usage
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "autonomous_chat_usage_insert_own" on public.autonomous_chat_usage;
+create policy "autonomous_chat_usage_insert_own"
+on public.autonomous_chat_usage
+for insert
+to authenticated
+with check (auth.uid() = user_id);
