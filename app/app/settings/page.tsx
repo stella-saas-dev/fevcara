@@ -118,6 +118,53 @@ const treatmentPreferenceOptions = [
   },
 ];
 
+const imageCreditPacks = [
+  {
+    label: "10クレジット",
+    price: "300円",
+    description: "ちょっとだけ画像生成を追加したいときに。",
+  },
+  {
+    label: "30クレジット",
+    price: "800円",
+    description: "複数キャラの画像をまとめて作りたいときに。",
+  },
+  {
+    label: "50クレジット",
+    price: "1,200円",
+    description: "しっかり画像生成を使いたいときに。",
+  },
+];
+
+const messagePackOptions = [
+  {
+    label: "100メッセージ",
+    price: "300円",
+    description: "月末に少しだけ続きを話したいときに。",
+  },
+  {
+    label: "300メッセージ",
+    price: "800円",
+    description: "お気に入りの子と長めに話したいときに。",
+  },
+  {
+    label: "500メッセージ",
+    price: "1,200円",
+    description: "グループチャットも含めてしっかり話したいときに。",
+  },
+];
+
+function canPurchaseAddOns(plan: string | null) {
+  const normalizedPlan = normalizePlan(plan);
+
+  return (
+    normalizedPlan.includes("lite") ||
+    normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("pro") ||
+    normalizedPlan.includes("paid")
+  );
+}
+
 export default async function SettingsPage({
   searchParams,
 }: SettingsPageProps) {
@@ -163,6 +210,7 @@ export default async function SettingsPage({
     Boolean(profile.active_character_id);
   const currentTreatmentPreference =
     profile.treatment_preference || "unspecified";
+  const canUseAddOnPurchases = canPurchaseAddOns(profile.plan);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
@@ -433,6 +481,134 @@ export default async function SettingsPage({
 
             <p className="mt-4 text-xs leading-6 text-[#7D8AA3]">
               Freeプランでは追加メッセージパックは購入できません。月間上限に達した場合は、Liteプラン以上へのアップグレードで続きを話せるようにします。
+            </p>
+          </section>
+
+                    <section className="rounded-[2rem] border border-[#FACC15]/20 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
+            <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
+              ADD-ONS
+            </p>
+            <h2 className="mt-2 text-xl font-black">追加購入</h2>
+            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+              画像生成や会話をもっと続けたいときに、必要な分だけ追加できます。
+              購入分は月次付与とは別枠で管理し、翌月に消えません。
+            </p>
+
+            {!canUseAddOnPurchases ? (
+              <div className="mt-5 rounded-3xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
+                <p className="text-sm font-black text-[#FDE68A]">
+                  追加購入はLiteプラン以上で利用できます
+                </p>
+                <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+                  Freeプランでは、追加メッセージパックと画像クレジット追加購入は利用できません。
+                  Liteプランにアップグレードすると、必要な分だけ追加購入できるようになります。
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-4">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#F4F1EA]">
+                      画像クレジット
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                      キャラクター画像生成に使うクレジットです。
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-3 py-1 text-[10px] font-black text-[#BAE6FD]">
+                    画像生成
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {imageCreditPacks.map((pack) => (
+                    <div
+                      key={pack.label}
+                      className="rounded-2xl border border-white/10 bg-black/15 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#F4F1EA]">
+                            {pack.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                            {pack.description}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-black text-[#BAE6FD]">
+                            {pack.price}
+                          </p>
+                          <button
+                            type="button"
+                            disabled
+                            className="mt-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-[#7D8AA3]"
+                          >
+                            準備中
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-[#FACC15]/20 bg-[#FACC15]/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#FDE68A]">
+                      追加メッセージパック
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                      月間メッセージ枠を使い切ったあとに使える、期限なしの追加メッセージです。
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                    会話用
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {messagePackOptions.map((pack) => (
+                    <div
+                      key={pack.label}
+                      className="rounded-2xl border border-white/10 bg-black/15 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-[#F4F1EA]">
+                            {pack.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                            {pack.description}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-black text-[#FDE68A]">
+                            {pack.price}
+                          </p>
+                          <button
+                            type="button"
+                            disabled
+                            className="mt-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-[#7D8AA3]"
+                          >
+                            準備中
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-6 text-[#7D8AA3]">
+              Stripe決済連携後、Liteプラン / Premiumプランで購入できるようにします。
+              購入済みの追加分は、月次付与分とは別に保持されます。
             </p>
           </section>
 
