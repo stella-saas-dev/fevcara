@@ -794,7 +794,9 @@ export default async function ChatPage({
               今月のメッセージ上限に達しました。
             </p>
             <p className="mt-2 text-[#F8FAFC]">
-              続きは来月、またはLite以上のプランで再開できます。
+              この子との会話は、ちゃんと残っています。
+              <br />
+              アップグレードすると、またこの続きから話せます。
             </p>
             <p className="mt-3 text-xs leading-5 text-[#E2E8F0]">
               {messageLimitDetailText}
@@ -979,11 +981,21 @@ export default async function ChatPage({
           shouldShowLimitNotice ? (
             <div className="mb-3 rounded-[1.25rem] border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 backdrop-blur">
               <p className="text-xs font-black text-[#FDE68A]">
-                本日のFreeメッセージ上限に達しました
+                今月のFreeメッセージ上限に達しました
               </p>
+
               <p className="mt-1 text-[11px] leading-5 text-[#E2E8F0]">
-                続きは明日、またはLiteで再開できます。
+                この子との会話は、ちゃんと残っています。
+                <br />
+                アップグレードすると、またこの続きから話せます。
               </p>
+
+              <Link
+                href="/app/settings"
+                className="mt-3 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-4 py-2.5 text-center text-xs font-black text-[#07111F]"
+              >
+                Liteを見る
+              </Link>
             </div>
           ) : null}
 
