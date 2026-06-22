@@ -1,6 +1,6 @@
 export type PlanTier = "free" | "premium_lite" | "premium";
 
-export type MessageUsageBucket = "trial_boost" | "monthly";
+export type MessageUsageBucket = "trial_boost" | "monthly" | "purchased";
 
 export type MessageUsageProfile = {
   id?: string;
@@ -17,12 +17,21 @@ export type TrialBoostMessageStatus = {
   endsAt: string | null;
 };
 
+export type PurchasedMessageCreditStatus = {
+  canUse: boolean;
+  granted: number;
+  used: number;
+  remaining: number;
+  usableRemaining: number;
+};
+
 export type MessageUsageStatus = {
   planTier: PlanTier;
   monthlyLimit: number;
   monthlyUsed: number;
   monthlyRemaining: number;
   trialBoost: TrialBoostMessageStatus;
+  purchased: PurchasedMessageCreditStatus;
   totalRemaining: number;
   nextBucket: MessageUsageBucket | null;
   isLimitReached: boolean;
@@ -42,6 +51,10 @@ export type RecordMessageUsageResult =
       message: string;
       status?: MessageUsageStatus;
     };
+
+type PurchasedMessageCreditPurchaseRow = {
+  messages_granted: number | null;
+};
 
 export const MESSAGE_LIMIT_REACHED_CODE = "message_monthly_limit";
 export const MESSAGE_USAGE_EVENT_TYPE = "chat_user_message";
@@ -79,6 +92,10 @@ export function getPlanTier(plan: string | null): PlanTier {
 
 export function isFreePlan(plan: string | null) {
   return getPlanTier(plan) === "free";
+}
+
+export function canUsePurchasedMessages(plan: string | null) {
+  return !isFreePlan(plan);
 }
 
 export function getMonthlyMessageLimit(plan: string | null) {
@@ -135,17 +152,23 @@ async function countUsageEvents({
 }: {
   supabase: any;
   userId: string;
-  start: string;
-  end: string;
+  start?: string;
+  end?: string;
   bucket?: MessageUsageBucket;
 }) {
   let query = supabase
     .from("usage_events")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .eq("event_type", MESSAGE_USAGE_EVENT_TYPE)
-    .gte("created_at", start)
-    .lt("created_at", end);
+    .eq("event_type", MESSAGE_USAGE_EVENT_TYPE);
+
+  if (start) {
+    query = query.gte("created_at", start);
+  }
+
+  if (end) {
+    query = query.lt("created_at", end);
+  }
 
   if (bucket) {
     query = query.contains("metadata", {
@@ -162,6 +185,50 @@ async function countUsageEvents({
   return count ?? 0;
 }
 
+async function getPurchasedMessageCreditStatus({
+  supabase,
+  userId,
+  plan,
+}: {
+  supabase: any;
+  userId: string;
+  plan: string | null;
+}): Promise<PurchasedMessageCreditStatus> {
+  const { data, error } = await supabase
+    .from("message_credit_purchases")
+    .select("messages_granted")
+    .eq("user_id", userId)
+    .eq("status", "paid");
+
+  if (error) {
+    throw error;
+  }
+
+  const purchases = (data ?? []) as PurchasedMessageCreditPurchaseRow[];
+
+  const granted = purchases.reduce((total, purchase) => {
+    return total + Math.max(Number(purchase.messages_granted ?? 0), 0);
+  }, 0);
+
+  const used = await countUsageEvents({
+    supabase,
+    userId,
+    bucket: "purchased",
+  });
+
+  const remaining = Math.max(granted - used, 0);
+  const canUse = canUsePurchasedMessages(plan);
+  const usableRemaining = canUse ? remaining : 0;
+
+  return {
+    canUse,
+    granted,
+    used,
+    remaining,
+    usableRemaining,
+  };
+}
+
 export async function getMessageUsageStatus({
   supabase,
   userId,
@@ -174,6 +241,14 @@ export async function getMessageUsageStatus({
   const planTier = getPlanTier(profile.plan);
   const monthlyLimit = getMonthlyMessageLimit(profile.plan);
   const monthRange = getJstMonthRange();
+
+  const monthlyBucketUsed = await countUsageEvents({
+    supabase,
+    userId,
+    start: monthRange.start,
+    end: monthRange.end,
+    bucket: "monthly",
+  });
 
   const totalUsedInMonth = await countUsageEvents({
     supabase,
@@ -190,7 +265,22 @@ export async function getMessageUsageStatus({
     bucket: "trial_boost",
   });
 
-  const monthlyUsed = Math.max(totalUsedInMonth - trialUsedInMonth, 0);
+  const purchasedUsedInMonth = await countUsageEvents({
+    supabase,
+    userId,
+    start: monthRange.start,
+    end: monthRange.end,
+    bucket: "purchased",
+  });
+
+  const fallbackMonthlyUsed = Math.max(
+    totalUsedInMonth - trialUsedInMonth - purchasedUsedInMonth,
+    0,
+  );
+
+  const monthlyUsed =
+    monthlyBucketUsed > 0 ? monthlyBucketUsed : fallbackMonthlyUsed;
+
   const monthlyRemaining = Math.max(monthlyLimit - monthlyUsed, 0);
 
   const trialStartsAt =
@@ -215,14 +305,23 @@ export async function getMessageUsageStatus({
     ? Math.max(FREE_TRIAL_BOOST_MESSAGE_LIMIT - trialUsed, 0)
     : 0;
 
+  const purchased = await getPurchasedMessageCreditStatus({
+    supabase,
+    userId,
+    plan: profile.plan,
+  });
+
   const nextBucket =
     trialRemaining > 0
       ? "trial_boost"
       : monthlyRemaining > 0
         ? "monthly"
-        : null;
+        : purchased.usableRemaining > 0
+          ? "purchased"
+          : null;
 
-  const totalRemaining = trialRemaining + monthlyRemaining;
+  const totalRemaining =
+    trialRemaining + monthlyRemaining + purchased.usableRemaining;
 
   return {
     planTier,
@@ -237,6 +336,7 @@ export async function getMessageUsageStatus({
       startsAt: trialStartsAt,
       endsAt: trialEndsAt,
     },
+    purchased,
     totalRemaining,
     nextBucket,
     isLimitReached: !nextBucket,
@@ -292,13 +392,22 @@ export async function recordMessageUsage({
       plan: profile.plan || "free",
       plan_tier: status.planTier,
       message_bucket: status.nextBucket,
+
       monthly_limit: status.monthlyLimit,
       monthly_used_before_send: status.monthlyUsed,
       monthly_remaining_before_send: status.monthlyRemaining,
+
       trial_boost_active: status.trialBoost.isActive,
       trial_boost_limit: status.trialBoost.limit,
       trial_boost_used_before_send: status.trialBoost.used,
       trial_boost_remaining_before_send: status.trialBoost.remaining,
+
+      purchased_can_use: status.purchased.canUse,
+      purchased_granted: status.purchased.granted,
+      purchased_used_before_send: status.purchased.used,
+      purchased_remaining_before_send: status.purchased.remaining,
+      purchased_usable_remaining_before_send: status.purchased.usableRemaining,
+
       month_start: status.monthStart,
       month_end: status.monthEnd,
       reset_basis: "Asia/Tokyo calendar month",
