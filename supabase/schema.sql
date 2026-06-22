@@ -1130,3 +1130,35 @@ create policy "Users can delete own group chat members"
   on public.group_chat_members
   for delete
   using (user_id = auth.uid());
+
+
+
+
+
+create table if not exists public.message_credit_purchases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+
+  pack_code text not null,
+  messages_granted integer not null check (messages_granted > 0),
+  price_jpy integer not null check (price_jpy >= 0),
+
+  plan_at_purchase text not null default 'premium_lite',
+
+  stripe_checkout_session_id text unique,
+  stripe_payment_intent_id text,
+
+  status text not null default 'paid',
+  created_at timestamptz not null default now()
+);
+
+
+
+
+alter table public.message_credit_purchases enable row level security;
+
+create policy "message_credit_purchases_select_own"
+on public.message_credit_purchases
+for select
+to authenticated
+using (auth.uid() = user_id);
