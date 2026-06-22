@@ -29,7 +29,7 @@ function getPlanLabel(plan: string | null) {
   const normalizedPlan = normalizePlan(plan);
 
   if (normalizedPlan.includes("lite")) {
-    return "Premium Lite";
+    return "Liteプラン";
   }
 
   if (
@@ -37,10 +37,10 @@ function getPlanLabel(plan: string | null) {
     normalizedPlan.includes("pro") ||
     normalizedPlan.includes("paid")
   ) {
-    return "Premium";
+    return "Premiumプラン";
   }
 
-  return "Free";
+  return "Freeプラン";
 }
 
 function getPlanDescription(plan: string | null) {
@@ -63,15 +63,15 @@ function getPlanDescription(plan: string | null) {
 
 function getUpdatedPlanLabel(plan: string | undefined) {
   if (plan === "premium_lite") {
-    return "Premium Lite";
+    return "Liteプラン";
   }
 
   if (plan === "premium") {
-    return "Premium";
+    return "Premiumプラン";
   }
 
   if (plan === "free") {
-    return "Free";
+    return "Freeプラン";
   }
 
   return null;
@@ -354,6 +354,86 @@ export default async function SettingsPage({
                 </p>
               </div>
             )}
+          </section>
+
+                      <section className="rounded-[2rem] border border-[#7DD3FC]/20 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
+            <p className="text-xs font-black tracking-[0.2em] text-[#7DD3FC]">
+              UPGRADE
+            </p>
+            <h2 className="mt-2 text-xl font-black">
+              もっと長く、もっと自由に話す
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+              Liteプラン以上にすると、複数キャラクター、グループチャット、より多い月間メッセージ送信、画像クレジットの追加購入が使えるようになります。
+            </p>
+
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#D9F99D]">
+                      Liteプラン
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                      月500メッセージ送信、キャラクター3人、グループチャット解放、キャラクターの記憶強化。
+                    </p>
+                    <p className="mt-2 text-[11px] leading-5 text-[#D9F99D]">
+                      画像クレジット：初回30、2か月目以降は月10
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-[#BEF264]/15 px-3 py-1 text-[10px] font-black text-[#D9F99D]">
+                    ¥990/月
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-[#BAE6FD]">
+                      Premiumプラン
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                      月1000メッセージ送信、キャラクター10人、グループチャット強化。
+                    </p>
+                    <p className="mt-2 text-[11px] leading-5 text-[#BAE6FD]">
+                      画像クレジット：月50、保存上限100枚
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-[#7DD3FC]/15 px-3 py-1 text-[10px] font-black text-[#BAE6FD]">
+                    ¥1,980/月
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-[#FACC15]/20 bg-[#FACC15]/10 p-4">
+                <p className="text-sm font-black text-[#FDE68A]">
+                  追加メッセージパック
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                  Liteプラン / Premiumプランでは、期限なしの追加メッセージパックを購入できるようにします。
+                </p>
+                <p className="mt-2 text-[11px] leading-5 text-[#FDE68A]">
+                  100回：300円 / 300回：800円 / 500回：1,200円
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-sm font-black text-[#F4F1EA]">
+                  画像クレジット追加購入
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                  Liteプラン / Premiumプランでは、キャラクター画像生成用の画像クレジットも追加購入できるようにします。
+                </p>
+                <p className="mt-2 text-[11px] leading-5 text-[#A7B0C0]">
+                  購入分は月次付与とは別枠で管理し、翌月に消えない仕様にします。
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-6 text-[#7D8AA3]">
+              Freeプランでは追加メッセージパックは購入できません。月間上限に達した場合は、Liteプラン以上へのアップグレードで続きを話せるようにします。
+            </p>
           </section>
 
           {enableDevPlanSwitch ? (
