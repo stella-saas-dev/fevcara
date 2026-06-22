@@ -2,12 +2,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
-import { updateDevPlan, updateUserProfile } from "./actions";
+import {
+  updateDevPlan,
+  updateNotificationSettings,
+  updateUserProfile,
+} from "./actions";
 
 type SettingsPageProps = {
   searchParams: Promise<{
     plan_updated?: string;
     profile_updated?: string;
+    notifications_updated?: string;
     error?: string;
   }>;
 };
@@ -19,6 +24,14 @@ type ProfileRow = {
   display_name: string | null;
   treatment_preference: string | null;
   user_setup_completed: boolean | null;
+};
+
+type NotificationSettingsRow = {
+  in_app_notifications_enabled: boolean | null;
+  autonomous_chat_enabled: boolean | null;
+  autonomous_chat_notifications_enabled: boolean | null;
+  email_notifications_enabled: boolean | null;
+  push_notifications_enabled: boolean | null;
 };
 
 function normalizePlan(plan: string | null) {
@@ -198,6 +211,22 @@ export default async function SettingsPage({
     user_setup_completed: false,
   }) as ProfileRow;
 
+    const { data: notificationSettingsData } = await supabase
+    .from("user_notification_settings")
+    .select(
+      "in_app_notifications_enabled, autonomous_chat_enabled, autonomous_chat_notifications_enabled, email_notifications_enabled, push_notifications_enabled",
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const notificationSettings = (notificationSettingsData ?? {
+    in_app_notifications_enabled: true,
+    autonomous_chat_enabled: true,
+    autonomous_chat_notifications_enabled: true,
+    email_notifications_enabled: false,
+    push_notifications_enabled: false,
+  }) as NotificationSettingsRow;
+
   const { count: characterCount } = await supabase
     .from("characters")
     .select("id", { count: "exact", head: true })
@@ -234,6 +263,12 @@ export default async function SettingsPage({
         {params.profile_updated ? (
           <div className="mt-6 rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 p-4 text-sm leading-6 text-[#D9F99D]">
             ユーザー設定を保存しました。
+          </div>
+        ) : null}
+
+        {params.notifications_updated ? (
+          <div className="mt-6 rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 p-4 text-sm leading-6 text-[#D9F99D]">
+            通知設定を保存しました。
           </div>
         ) : null}
 
@@ -688,11 +723,102 @@ export default async function SettingsPage({
             </section>
           )}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-sm font-semibold">通知</p>
-            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-              キャラクターからの不定期コメント通知を設定します。後で追加します。
+          <section className="rounded-[2rem] border border-[#BEF264]/20 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30">
+            <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
+              NOTIFICATIONS
             </p>
+            <h2 className="mt-2 text-xl font-black">通知設定</h2>
+            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+              β版では、まずアプリ内通知を中心に使います。
+              メール通知とプッシュ通知は、今後の拡張用として準備しています。
+            </p>
+
+            <form action={updateNotificationSettings} className="mt-5 grid gap-3">
+              <label className="block cursor-pointer rounded-3xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-[#BEF264]/30 hover:bg-white/[0.06]">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="inAppNotificationsEnabled"
+                    defaultChecked={
+                      notificationSettings.in_app_notifications_enabled ?? true
+                    }
+                    className="mt-1 shrink-0 accent-[#BEF264]"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-[#F4F1EA]">
+                      アプリ内通知を受け取る
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                      ホームや通知一覧で、キャラクターたちの動きやお知らせを確認できるようにします。
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              <label className="block cursor-pointer rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4 transition hover:border-[#7DD3FC]/35 hover:bg-[#7DD3FC]/15">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="autonomousChatEnabled"
+                    defaultChecked={
+                      notificationSettings.autonomous_chat_enabled ?? true
+                    }
+                    className="mt-1 shrink-0 accent-[#7DD3FC]"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-black text-[#BAE6FD]">
+                        キャラ同士の自主会話を許可する
+                      </p>
+                      <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-2 py-0.5 text-[10px] font-black text-[#BAE6FD]">
+                        Premiumプラン専用
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                      Premiumプランでは、キャラクターたちがグループチャット内で少しだけ自主的に会話できるようにします。
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              <label className="block cursor-pointer rounded-3xl border border-[#FACC15]/20 bg-[#FACC15]/10 p-4 transition hover:border-[#FACC15]/35 hover:bg-[#FACC15]/15">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="autonomousChatNotificationsEnabled"
+                    defaultChecked={
+                      notificationSettings.autonomous_chat_notifications_enabled ??
+                      true
+                    }
+                    className="mt-1 shrink-0 accent-[#FACC15]"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-[#FDE68A]">
+                      自主会話が発生したら通知する
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#D8DEE9]">
+                      キャラクターたちが新しい会話をしたとき、アプリ内通知で知らせます。
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
+                <p className="text-sm font-black text-[#F4F1EA]">
+                  メール通知・プッシュ通知
+                </p>
+                <p className="mt-2 text-xs leading-6 text-[#A7B0C0]">
+                  β版ではまだ準備中です。まずはアプリ内通知で安全に動作確認します。
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
+              >
+                通知設定を保存する
+              </button>
+            </form>
           </section>
 
           <Link

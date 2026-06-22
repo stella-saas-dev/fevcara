@@ -16,6 +16,10 @@ function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+function getCheckbox(formData: FormData, key: string) {
+  return formData.get(key) === "on";
+}
+
 function isDevPlan(value: string): value is DevPlan {
   return value === "free" || value === "premium_lite" || value === "premium";
 }
@@ -101,6 +105,56 @@ export async function updateUserProfile(formData: FormData) {
   revalidatePath("/app/settings");
 
   redirect("/app/settings?profile_updated=1");
+}
+
+export async function updateNotificationSettings(formData: FormData) {
+  const inAppNotificationsEnabled = getCheckbox(
+    formData,
+    "inAppNotificationsEnabled",
+  );
+  const autonomousChatEnabled = getCheckbox(
+    formData,
+    "autonomousChatEnabled",
+  );
+  const autonomousChatNotificationsEnabled = getCheckbox(
+    formData,
+    "autonomousChatNotificationsEnabled",
+  );
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { error } = await supabase.from("user_notification_settings").upsert(
+    {
+      user_id: user.id,
+      in_app_notifications_enabled: inAppNotificationsEnabled,
+      autonomous_chat_enabled: autonomousChatEnabled,
+      autonomous_chat_notifications_enabled:
+        autonomousChatNotificationsEnabled,
+      email_notifications_enabled: false,
+      push_notifications_enabled: false,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id",
+    },
+  );
+
+  if (error) {
+    redirectWithError("通知設定の保存に失敗しました。");
+  }
+
+  revalidatePath("/app/settings");
+  revalidatePath("/app");
+
+  redirect("/app/settings?notifications_updated=1");
 }
 
 export async function updateDevPlan(formData: FormData) {
