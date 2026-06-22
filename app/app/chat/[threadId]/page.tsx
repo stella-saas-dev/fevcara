@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import { MESSAGE_LIMIT_REACHED_CODE, getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
 import { sendUserMessage } from "./actions";
 import { ScrollToLatestMessage } from "./ScrollToLatestMessage";
 
@@ -122,55 +123,6 @@ function isFreeTrialBoostActive({
   return Date.now() < endsAtTime;
 }
 
-function getJstDateParts(date: Date) {
-  const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-
-  return {
-    year: jstDate.getUTCFullYear(),
-    month: jstDate.getUTCMonth(),
-    date: jstDate.getUTCDate(),
-  };
-}
-
-function getTodayJstRange() {
-  const now = new Date();
-  const { year, month, date } = getJstDateParts(now);
-
-  const startUtcMs =
-    Date.UTC(year, month, date, 0, 0, 0, 0) - 9 * 60 * 60 * 1000;
-  const endUtcMs = startUtcMs + 24 * 60 * 60 * 1000;
-
-  return {
-    start: new Date(startUtcMs).toISOString(),
-    end: new Date(endUtcMs).toISOString(),
-  };
-}
-
-function isSameJstDate(a: Date, b: Date) {
-  const aParts = getJstDateParts(a);
-  const bParts = getJstDateParts(b);
-
-  return (
-    aParts.year === bParts.year &&
-    aParts.month === bParts.month &&
-    aParts.date === bParts.date
-  );
-}
-
-function getDailyMessageLimit(profile: ProfileForUsage) {
-  if (isPaidPlan(profile.plan)) {
-    return null;
-  }
-
-  const createdAt = profile.created_at
-    ? new Date(profile.created_at)
-    : new Date();
-
-  const isFirstDay = isSameJstDate(createdAt, new Date());
-
-  return isFirstDay ? 30 : 10;
-}
-
 function getCharacterFromRelation(characterRelation: CharacterRelation) {
   if (Array.isArray(characterRelation)) {
     return characterRelation[0] ?? null;
@@ -283,7 +235,9 @@ export default async function ChatPage({
 }: ChatPageProps) {
   const { threadId } = await params;
   const query = await searchParams;
-  const isFreeDailyLimitReached = query.limit === "free_daily_message";
+  const isMessageLimitReached =
+    query.limit === MESSAGE_LIMIT_REACHED_CODE ||
+    query.limit === "free_daily_message";
   const showMemoryDebug = process.env.FEVCARA_SHOW_MEMORY_DEBUG === "true";
 
   const supabase = await createClient();
@@ -517,24 +471,30 @@ export default async function ChatPage({
     totalCharacters > 1 &&
     !profileForCharacterAccess.character_limit_choice_locked;
 
-  const dailyMessageLimit = getDailyMessageLimit(profileForUsage);
-  let usedMessagesToday = 0;
-  let remainingMessagesToday: number | null = null;
+  const messageUsageStatus = await getMessageUsageStatus({
+    supabase,
+    userId: user.id,
+    profile: {
+      plan: profileForUsage.plan,
+      created_at: profileForUsage.created_at,
+    },
+  });
 
-  if (dailyMessageLimit !== null) {
-    const { start, end } = getTodayJstRange();
+  const trialRemainingMessages = messageUsageStatus.trialBoost.remaining;
+  const monthlyRemainingMessages = messageUsageStatus.monthlyRemaining;
+  const messageUsageLabel =
+    messageUsageStatus.trialBoost.isActive && trialRemainingMessages > 0
+      ? `Trialあと ${trialRemainingMessages} 通 / 今月あと ${monthlyRemainingMessages} 通`
+      : `今月あと ${monthlyRemainingMessages} 通`;
 
-    const { count } = await supabase
-      .from("usage_events")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("event_type", "chat_user_message")
-      .gte("created_at", start)
-      .lt("created_at", end);
-
-    usedMessagesToday = count ?? 0;
-    remainingMessagesToday = Math.max(dailyMessageLimit - usedMessagesToday, 0);
-  }
+  const messageLimitDetailText =
+  messageUsageStatus.planTier === "free"
+    ? messageUsageStatus.trialBoost.isActive
+      ? "初回72時間のボーナス300メッセージを使い切った後は、Free通常枠の月250メッセージ送信を使います。AI返信は消費に含まれません。"
+      : "Freeプランでは、通常は月250メッセージ送信まで話せます。AI返信は消費に含まれません。"
+    : messageUsageStatus.planTier === "premium_lite"
+      ? "Liteプランでは、月500メッセージ送信まで話せます。AI返信は消費に含まれません。"
+      : "Premiumプランでは、月1000メッセージ送信まで話せます。AI返信は消費に含まれません。";
 
   const isWaitingThreadCharacter =
     !isGroupChat &&
@@ -544,17 +504,16 @@ export default async function ChatPage({
     Boolean(thread.character_id) &&
     profileForCharacterAccess.active_character_id !== thread.character_id;
 
-  const hasNoFreeMessages =
-    dailyMessageLimit !== null && remainingMessagesToday === 0;
+  const hasNoMessages = messageUsageStatus.isLimitReached;
 
   const isMessageInputDisabled =
     needsActiveCharacterSelection ||
-    isFreeDailyLimitReached ||
-    hasNoFreeMessages ||
+    isMessageLimitReached ||
+    hasNoMessages ||
     isWaitingThreadCharacter ||
     isGroupChatLocked;
 
-  const shouldShowLimitNotice = isFreeDailyLimitReached || hasNoFreeMessages;
+  const shouldShowLimitNotice = isMessageLimitReached || hasNoMessages;
 
   const latestMessageKey =
     messages.length > 0 ? messages[messages.length - 1].id : "empty";
@@ -832,14 +791,13 @@ export default async function ChatPage({
         {shouldShowLimitNotice ? (
           <div className="mt-5 rounded-[2rem] border border-[#FACC15]/30 bg-[#FACC15]/10 p-5 text-sm leading-7 text-[#FDE68A] shadow-lg shadow-[#FACC15]/5 backdrop-blur">
             <p className="font-black text-[#FDE68A]">
-              今日はここまでです。
+              今月のメッセージ上限に達しました。
             </p>
             <p className="mt-2 text-[#F8FAFC]">
-              続きは明日、またはLiteで今すぐ再開できます。
+              続きは来月、またはLite以上のプランで再開できます。
             </p>
             <p className="mt-3 text-xs leading-5 text-[#E2E8F0]">
-              Freeプランでは、通常1日10メッセージまで話せます。
-              初回登録日は30メッセージまで体験できます。
+              {messageLimitDetailText}
             </p>
           </div>
         ) : null}
@@ -1067,13 +1025,13 @@ export default async function ChatPage({
                 <p className="truncate text-[11px] text-[#FACC15]">
                   Freeプランでは待機中
                 </p>
-              ) : dailyMessageLimit !== null ? (
-                <p className="truncate text-[11px] text-[#E2E8F0]">
-                  今日あと {remainingMessagesToday ?? 0} 通
+              ) : hasNoMessages ? (
+                <p className="truncate text-[11px] text-[#FACC15]">
+                  今月の上限に達しました
                 </p>
               ) : (
                 <p className="truncate text-[11px] text-[#E2E8F0]">
-                  Premiumメッセージ
+                  {messageUsageLabel}
                 </p>
               )}
             </div>
@@ -1096,7 +1054,7 @@ export default async function ChatPage({
                   : isWaitingThreadCharacter
                     ? "待機中"
                     : isMessageInputDisabled
-                      ? "今日はここまで"
+                      ? "今月はここまで"
                       : "送信"}
               </button>
             )}

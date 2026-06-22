@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createOpenAIClient, getOpenAIModel } from "@/lib/openai/client";
+import { MESSAGE_LIMIT_REACHED_CODE, recordMessageUsage } from "@/lib/fevcara/messageUsage";
 
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -13,7 +14,7 @@ function redirectWithError(threadId: string, message: string): never {
 }
 
 function redirectWithLimit(threadId: string): never {
-  return redirect(`/app/chat/${threadId}?limit=free_daily_message`);
+  return redirect(`/app/chat/${threadId}?limit=${MESSAGE_LIMIT_REACHED_CODE}`);
 }
 
 type PlanTier = "free" | "premium_lite" | "premium";
@@ -286,53 +287,6 @@ function sanitizeAiReplyContent({
   return text.trim();
 }
 
-function getJstDateParts(date: Date) {
-  const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-
-  return {
-    year: jstDate.getUTCFullYear(),
-    month: jstDate.getUTCMonth(),
-    date: jstDate.getUTCDate(),
-  };
-}
-
-function getTodayJstRange() {
-  const now = new Date();
-  const { year, month, date } = getJstDateParts(now);
-
-  const startUtcMs =
-    Date.UTC(year, month, date, 0, 0, 0, 0) - 9 * 60 * 60 * 1000;
-  const endUtcMs = startUtcMs + 24 * 60 * 60 * 1000;
-
-  return {
-    start: new Date(startUtcMs).toISOString(),
-    end: new Date(endUtcMs).toISOString(),
-  };
-}
-
-function isSameJstDate(a: Date, b: Date) {
-  const aParts = getJstDateParts(a);
-  const bParts = getJstDateParts(b);
-
-  return (
-    aParts.year === bParts.year &&
-    aParts.month === bParts.month &&
-    aParts.date === bParts.date
-  );
-}
-
-function getDailyMessageLimit(profile: ProfileForLimit) {
-  const planTier = getPlanTier(profile.plan);
-
-  if (planTier !== "free") {
-    return null;
-  }
-
-  const isFirstDay = isSameJstDate(new Date(profile.created_at), new Date());
-
-  return isFirstDay ? 30 : 10;
-}
-
 async function assertCanUseThreadCharacter({
   supabase,
   userId,
@@ -418,60 +372,24 @@ async function checkAndRecordMessageUsage({
   }
 
   const profile = profileData as ProfileForLimit;
-  const dailyLimit = getDailyMessageLimit(profile);
-  const planTier = getPlanTier(profile.plan);
 
-  if (dailyLimit === null) {
-    await supabase.from("usage_events").insert({
-      user_id: userId,
-      event_type: "chat_user_message",
-      amount: 1,
-      metadata: {
-        thread_id: threadId,
-        plan: profile.plan || "free",
-        plan_tier: planTier,
-      },
-    });
-
-    return profile;
-  }
-
-  const { start, end } = getTodayJstRange();
-
-  const { count, error: countError } = await supabase
-    .from("usage_events")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("event_type", "chat_user_message")
-    .gte("created_at", start)
-    .lt("created_at", end);
-
-  if (countError) {
-    redirectWithError(threadId, "利用回数の確認に失敗しました。");
-  }
-
-  const usedCount = count ?? 0;
-
-  if (usedCount >= dailyLimit) {
-    redirectWithLimit(threadId);
-  }
-
-  const { error: usageInsertError } = await supabase.from("usage_events").insert({
-    user_id: userId,
-    event_type: "chat_user_message",
-    amount: 1,
-    metadata: {
-      thread_id: threadId,
-      plan: profile.plan || "free",
-      plan_tier: planTier,
-      daily_limit: dailyLimit,
-      used_before_send: usedCount,
-      reset_basis: "Asia/Tokyo",
+  const usageResult = await recordMessageUsage({
+    supabase,
+    userId,
+    threadId,
+    profile: {
+      id: profile.id,
+      plan: profile.plan,
+      created_at: profile.created_at,
     },
   });
 
-  if (usageInsertError) {
-    redirectWithError(threadId, "利用回数の記録に失敗しました。");
+  if (!usageResult.ok) {
+    if (usageResult.reason === "limit_reached") {
+      redirectWithLimit(threadId);
+    }
+
+    redirectWithError(threadId, usageResult.message);
   }
 
   return profile;
