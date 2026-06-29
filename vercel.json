@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/autonomous-chat",
+      "schedule": "0 3 * * 2"
+    },
+    {
+      "path": "/api/cron/autonomous-chat",
+      "schedule": "0 3 * * 5"
+    }
+  ]
+}
