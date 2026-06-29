@@ -165,10 +165,12 @@ function toStringList(value: unknown) {
 
 function formatMessageTime(createdAt: string) {
   return new Date(createdAt).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 
