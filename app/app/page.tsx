@@ -858,24 +858,24 @@ export default async function AppHomePage() {
         ) : null}
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4">
-            <p className="text-2xl font-black text-[#F4F1EA]">
+         <div className="rounded-3xl border border-[#D9F99D] bg-[#F7FEE7] p-4">
+            <p className="text-2xl font-black text-[#0F172A]">
               {characterCount}
-              <span className="text-sm text-[#A7B0C0]">
+              <span className="text-sm text-[#64748B]">
                 {" "}
                 / {limitConfig.limit}
               </span>
             </p>
-            <p className="mt-1 text-xs font-bold text-[#D9F99D]">
+            <p className="mt-1 text-xs font-bold text-[#65A30D]">
               キャラクター
             </p>
           </div>
 
-          <div className="rounded-3xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 p-4">
-            <p className="text-2xl font-black text-[#F4F1EA]">
+          <div className="rounded-3xl border border-[#BAE6FD] bg-[#E0F2FE] p-4">
+            <p className="text-2xl font-black text-[#0F172A]">
               {threads.length}
             </p>
-            <p className="mt-1 text-xs font-bold text-[#BAE6FD]">チャット</p>
+            <p className="mt-1 text-xs font-bold text-[#0284C7]">チャット</p>
           </div>
         </div>
 
@@ -888,7 +888,7 @@ export default async function AppHomePage() {
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7DD3FC]/18 text-xl">
                 💬
               </span>
-              <span className="text-base font-black text-[#BAE6FD]">
+              <span className="text-base font-black text-[#0369A1]">
                 チャット一覧
               </span>
             </div>
@@ -903,7 +903,7 @@ export default async function AppHomePage() {
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#BEF264]/18 text-xl">
                 ☻
               </span>
-              <span className="text-base font-black text-[#D9F99D]">
+              <span className="text-base font-black text-[#65A30D]">
                 キャラクター一覧
               </span>
             </div>
@@ -937,11 +937,11 @@ export default async function AppHomePage() {
             </div>
           )}
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-sm font-semibold text-[#F4F1EA]">
+          <div className="rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-[#0F172A]">
               画像生成はオリジナルキャラ専用
             </p>
-            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+            <p className="mt-2 text-sm leading-6 text-[#64748B]">
               実在人物・既存キャラクター・写真風の生成はできません。
               FevCaraでは安全なイラスト絵柄プリセットを使います。
             </p>
@@ -951,7 +951,7 @@ export default async function AppHomePage() {
         <form action={logout} className="mt-6">
           <button
             type="submit"
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-semibold text-[#F4F1EA] transition hover:bg-white/[0.08]"
+            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 text-center text-sm font-semibold text-[#334155] shadow-sm transition hover:bg-white"
           >
             ログアウト
           </button>

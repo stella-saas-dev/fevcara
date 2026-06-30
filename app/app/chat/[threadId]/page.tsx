@@ -554,11 +554,11 @@ export default async function ChatPage({
     >
       {isGroupChat ? (
         <>
-          <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_12%_8%,rgba(125,211,252,0.20),transparent_30%),radial-gradient(circle_at_88%_18%,rgba(190,242,100,0.16),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(250,204,21,0.10),transparent_34%),linear-gradient(180deg,#060A14_0%,#0B1020_46%,#111827_100%)]" />
+         <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_10%_10%,rgba(250,204,21,0.22),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(125,211,252,0.24),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(190,242,100,0.16),transparent_32%),linear-gradient(180deg,#FFFFFF_0%,#FFFDEB_48%,#EFF6FF_100%)]" />
 
-          <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),transparent_20%,rgba(0,0,0,0.28)_100%)]" />
+         <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.30),transparent_24%,rgba(255,255,255,0.12)_100%)]" />
 
-          <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(125,211,252,0.18),transparent_62%)]" />
+         <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.60),transparent_62%)]" />
         </>
       ) : characterBackgroundUrl ? (
         <>
@@ -575,13 +575,13 @@ export default async function ChatPage({
           <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.28),transparent_26%),radial-gradient(circle_at_50%_48%,rgba(125,211,252,0.08),transparent_30%),radial-gradient(circle_at_18%_82%,rgba(190,242,100,0.06),transparent_22%)]" />
         </>
       ) : (
-        <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020]" />
+        <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.18),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.20),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#FFFDEB_52%,#EFF6FF_100%)]" />
       )}
 
       <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
 
       <section className="relative z-10 mx-auto w-full max-w-md">
-        <header className="sticky top-2 z-30 rounded-[1.5rem] border border-white/14 bg-[#0F172A]/68 p-3 shadow-xl shadow-black/16 backdrop-blur-xl">
+        <header className="sticky top-2 z-30 rounded-[1.5rem] border border-slate-200/80 bg-white/78 p-3 shadow-xl shadow-slate-300/20 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="relative">
               <CharacterAvatar
@@ -607,7 +607,7 @@ export default async function ChatPage({
 
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <h1 className="truncate text-lg font-black leading-tight text-white">
+                <h1 className="truncate text-lg font-black leading-tight text-[#0F172A]">
                   {characterName}
                 </h1>
 
@@ -856,7 +856,7 @@ export default async function ChatPage({
                       <CharacterAvatar
                         name={speakerName}
                         imageUrl={speakerIconUrl}
-                        sizeClass="h-9 w-9"
+                        sizeClass="h-10 w-10"
                         roundedClass="rounded-2xl"
                         textClass="text-sm"
                         borderClass="border-[#7DD3FC]/20"

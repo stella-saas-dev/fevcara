@@ -301,7 +301,7 @@ export default async function ChatsPage() {
 
           <div className="mt-2 flex items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-black">チャット</h1>
+              <h1 className="text-3xl font-black text-white">チャット</h1>
               <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
                 最近話したキャラクターから順に表示します。
               </p>

@@ -286,7 +286,7 @@ export default async function SettingsPage({
             <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
               USER PROFILE
             </p>
-            <h2 className="mt-2 text-xl font-black">
+            <h2 className="mt-2 text-xl font-black text-white">
               FevCara内でのあなたの設定
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
@@ -402,7 +402,7 @@ export default async function SettingsPage({
 
             <div className="mt-3 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black">{currentPlanLabel}</h2>
+                <h2 className="text-2xl font-black text-white">{currentPlanLabel}</h2>
                 <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
                   {getPlanDescription(profile.plan)}
                 </p>
@@ -523,7 +523,7 @@ export default async function SettingsPage({
             <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
               ADD-ONS
             </p>
-            <h2 className="mt-2 text-xl font-black">追加購入</h2>
+            <h2 className="mt-2 text-xl font-black text-white">追加購入</h2>
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
               画像生成や会話をもっと続けたいときに、必要な分だけ追加できます。
               購入分は月次付与とは別枠で管理し、翌月に消えません。
@@ -716,7 +716,7 @@ export default async function SettingsPage({
               <p className="text-xs font-black tracking-[0.2em] text-[#FACC15]">
                 PLAN
               </p>
-              <h2 className="mt-2 text-xl font-black">プラン管理</h2>
+              <h2 className="mt-2 text-xl font-black text-white">プラン管理</h2>
               <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
                 プラン変更・支払い管理は、Stripe連携後にここから操作できるようにします。
               </p>
@@ -727,7 +727,7 @@ export default async function SettingsPage({
             <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
               NOTIFICATIONS
             </p>
-            <h2 className="mt-2 text-xl font-black">通知設定</h2>
+            <h2 className="mt-2 text-xl font-black text-white">通知設定</h2>
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
               β版では、まずアプリ内通知を中心に使います。
               メール通知とプッシュ通知は、今後の拡張用として準備しています。
