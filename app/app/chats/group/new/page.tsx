@@ -31,12 +31,15 @@ type GroupChatAccess = {
   canUse: boolean;
   label: string;
   description: string;
+  memberLimitDescription: string;
+  maxMembers: number;
   isTrialBoostActive: boolean;
   remainingHours: number;
 };
 
 const FREE_TRIAL_BOOST_HOURS = 72;
-const GROUP_CHAT_MAX_MEMBERS = 3;
+const GROUP_CHAT_STANDARD_MAX_MEMBERS = 3;
+const GROUP_CHAT_PREMIUM_MAX_MEMBERS = 10;
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
@@ -95,6 +98,8 @@ function getGroupChatAccess(profile: ProfileForGroupChat): GroupChatAccess {
       canUse: true,
       label: "Premium",
       description: "Premiumでは、グループチャットを利用できます。",
+      memberLimitDescription: "Premiumでは最大10人まで参加できます。",
+      maxMembers: GROUP_CHAT_PREMIUM_MAX_MEMBERS,
       isTrialBoostActive: false,
       remainingHours: 0,
     };
@@ -105,6 +110,8 @@ function getGroupChatAccess(profile: ProfileForGroupChat): GroupChatAccess {
       canUse: true,
       label: "Lite",
       description: "Liteでは、グループチャットを利用できます。",
+      memberLimitDescription: "Liteでは最大3人まで参加できます。",
+      maxMembers: GROUP_CHAT_STANDARD_MAX_MEMBERS,
       isTrialBoostActive: false,
       remainingHours: 0,
     };
@@ -121,6 +128,8 @@ function getGroupChatAccess(profile: ProfileForGroupChat): GroupChatAccess {
       label: "Free Trial",
       description:
         "初回72時間トライアル中です。今だけグループチャットを体験できます。",
+      memberLimitDescription: "Free Trial中は最大3人まで参加できます。",
+      maxMembers: GROUP_CHAT_STANDARD_MAX_MEMBERS,
       isTrialBoostActive: true,
       remainingHours,
     };
@@ -131,6 +140,8 @@ function getGroupChatAccess(profile: ProfileForGroupChat): GroupChatAccess {
     label: "Free",
     description:
       "グループチャットはLite以上、または初回72時間トライアル中に利用できます。",
+    memberLimitDescription: "Free通常時はグループチャットを作成できません。",
+    maxMembers: 0,
     isTrialBoostActive: false,
     remainingHours: 0,
   };
@@ -242,7 +253,7 @@ export default async function NewGroupChatPage({
           </h1>
           <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
             2人以上のキャラクターを選んで、同じ場所で会話できる部屋を作ります。
-            最初のMVPでは最大{GROUP_CHAT_MAX_MEMBERS}人まで選べます。
+            Premiumは最大10人、LiteとFree Trialは最大3人まで選べます。
           </p>
         </header>
 
@@ -270,10 +281,19 @@ export default async function NewGroupChatPage({
                     残り約{access.remainingHours}時間
                   </span>
                 ) : null}
+
+                {access.canUse ? (
+                  <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-3 py-1 text-xs font-black text-[#BAE6FD]">
+                    最大{access.maxMembers}人
+                  </span>
+                ) : null}
               </div>
 
               <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
                 {access.description}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#D8DEE9]">
+                {access.memberLimitDescription}
               </p>
             </div>
 
@@ -364,8 +384,11 @@ export default async function NewGroupChatPage({
               </p>
 
               <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
-                2人以上、最大{GROUP_CHAT_MAX_MEMBERS}人まで選んでください。
-                キャラクター同士の関係性設定は、次のAI返信で参照できるように拡張します。
+                2人以上、最大{access.maxMembers}人まで選んでください。
+                Premiumは10人まで、LiteとFree Trialは3人までです。
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#D8DEE9]">
+                参加人数を増やしても、1ターンで返信するキャラクター数は会話の自然さを保つために自動調整されます。
               </p>
 
               <div className="mt-5 grid gap-3">

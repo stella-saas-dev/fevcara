@@ -19,7 +19,9 @@ type CharacterForGroupChat = {
 };
 
 const FREE_TRIAL_BOOST_HOURS = 72;
-const GROUP_CHAT_MAX_MEMBERS = 3;
+const GROUP_CHAT_STANDARD_MAX_MEMBERS = 3;
+const GROUP_CHAT_PREMIUM_MAX_MEMBERS = 10;
+const GROUP_CHAT_TITLE_NAME_LIMIT = 3;
 
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -83,12 +85,65 @@ function canUseGroupChat(profile: ProfileForGroupChat) {
   });
 }
 
+function getGroupChatMaxMembers(profile: ProfileForGroupChat) {
+  const planTier = getPlanTier(profile.plan);
+
+  if (planTier === "premium") {
+    return GROUP_CHAT_PREMIUM_MAX_MEMBERS;
+  }
+
+  return GROUP_CHAT_STANDARD_MAX_MEMBERS;
+}
+
+function getGroupChatLimitLabel(profile: ProfileForGroupChat) {
+  const planTier = getPlanTier(profile.plan);
+
+  if (planTier === "premium") {
+    return "Premium";
+  }
+
+  if (planTier === "premium_lite") {
+    return "Lite";
+  }
+
+  if (
+    isFreeTrialBoostActive({
+      plan: profile.plan,
+      createdAt: profile.created_at,
+    })
+  ) {
+    return "Free Trial";
+  }
+
+  return "Free";
+}
+
 function getCharacterName(character: CharacterForGroupChat) {
   return (
     character.final_name ||
     character.temporary_name ||
     "名前のないキャラクター"
   );
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+}
+
+function buildDefaultGroupTitle(characterNames: string[]) {
+  const visibleNames = characterNames.slice(0, GROUP_CHAT_TITLE_NAME_LIMIT);
+  const hiddenCount = Math.max(0, characterNames.length - visibleNames.length);
+
+  const baseTitle =
+    hiddenCount > 0
+      ? `${visibleNames.join("・")} 他${hiddenCount}人のグループ`
+      : `${visibleNames.join("・")}のグループ`;
+
+  return truncateText(baseTitle, 50);
 }
 
 function redirectWithError(message: string): never {
@@ -113,12 +168,6 @@ export async function createGroupChat(formData: FormData) {
 
   if (selectedCharacterIds.length < 2) {
     redirectWithError("グループチャットには2人以上のキャラクターを選んでください。");
-  }
-
-  if (selectedCharacterIds.length > GROUP_CHAT_MAX_MEMBERS) {
-    redirectWithError(
-      `最初のグループチャットでは${GROUP_CHAT_MAX_MEMBERS}人まで選べます。`,
-    );
   }
 
   const supabase = await createClient();
@@ -149,6 +198,14 @@ export async function createGroupChat(formData: FormData) {
   if (!canUseGroupChat(profile)) {
     redirectWithError(
       "グループチャットはLite以上、または初回72時間トライアル中に利用できます。",
+    );
+  }
+
+  const maxMembers = getGroupChatMaxMembers(profile);
+
+  if (selectedCharacterIds.length > maxMembers) {
+    redirectWithError(
+      `${getGroupChatLimitLabel(profile)}では最大${maxMembers}人まで選べます。`,
     );
   }
 
@@ -190,10 +247,7 @@ export async function createGroupChat(formData: FormData) {
     );
 
   const characterNames = selectedCharacters.map(getCharacterName);
-
-  const title =
-    requestedTitle ||
-    `${characterNames.slice(0, GROUP_CHAT_MAX_MEMBERS).join("・")}のグループ`;
+  const title = requestedTitle || buildDefaultGroupTitle(characterNames);
 
   const { data: threadData, error: threadError } = await supabase
     .from("chat_threads")
