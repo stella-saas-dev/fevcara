@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getGroupIconClasses,
+  getGroupInitial,
+} from "@/lib/fevcara/groupIcon";
 
 type CharacterRelation =
   | {
@@ -27,6 +31,7 @@ type ThreadRow = {
   title: string | null;
   chat_type: string;
   character_id: string | null;
+  group_icon_color: string | null;
   created_at: string;
   updated_at: string;
   characters: CharacterRelation;
@@ -200,6 +205,7 @@ export default async function ChatsPage() {
       title,
       chat_type,
       character_id,
+      group_icon_color,
       created_at,
       updated_at,
       characters (
@@ -412,6 +418,8 @@ export default async function ChatsPage() {
               const threadDisplayName = isGroupChat
                 ? thread.title || "グループチャット"
                 : characterName;
+              const groupInitial = getGroupInitial(threadDisplayName);
+              const groupIconClasses = getGroupIconClasses(thread.group_icon_color);
               const characterIconUrl =
                 !isGroupChat && character?.icon_image_url
                   ? character.icon_image_url
@@ -450,24 +458,24 @@ export default async function ChatsPage() {
                   ].join(" ")}
                 >
                   <div className="flex items-center gap-4">
-                                        <div
+                    <div
                       className={[
                         "relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border text-xl font-black shadow-lg",
                         isLimitedThread
                           ? "border-white/10 bg-white/[0.04] text-[#7D8AA3] shadow-black/10"
-                          : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
+                          : isGroupChat
+                            ? groupIconClasses.icon
+                            : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
                       ].join(" ")}
                     >
-                      {characterIconUrl ? (
+                      {characterIconUrl && !isGroupChat ? (
                         <img
                           src={characterIconUrl}
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover"
                         />
                       ) : (
-                        <span>
-                          {isGroupChat ? "群" : getAvatarText(characterName)}
-                        </span>
+                        <span>{isGroupChat ? groupInitial : getAvatarText(characterName)}</span>
                       )}
                     </div>
 

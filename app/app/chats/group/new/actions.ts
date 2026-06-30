@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeGroupIconColor } from "@/lib/fevcara/groupIcon";
 
 type PlanTier = "free" | "premium_lite" | "premium";
 
@@ -152,6 +153,9 @@ function redirectWithError(message: string): never {
 
 export async function createGroupChat(formData: FormData) {
   const requestedTitle = getText(formData, "title");
+  const groupIconColor = normalizeGroupIconColor(
+    getText(formData, "groupIconColor"),
+  );
 
   const selectedCharacterIds = Array.from(
     new Set(
@@ -256,6 +260,7 @@ export async function createGroupChat(formData: FormData) {
       title,
       chat_type: "group",
       character_id: null,
+      group_icon_color: groupIconColor,
     })
     .select("id")
     .single();

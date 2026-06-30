@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import {
+  GROUP_ICON_COLOR_OPTIONS,
+  getGroupIconClasses,
+} from "@/lib/fevcara/groupIcon";
 import { createGroupChat } from "./actions";
 
 type GroupNewPageProps = {
@@ -252,8 +256,8 @@ export default async function NewGroupChatPage({
             グループチャットを作る
           </h1>
           <p className="mt-3 text-sm leading-7 text-[#A7B0C0]">
-            2人以上のキャラクターを選んで、同じ場所で会話できる部屋を作ります。
-            Premiumは最大10人、LiteとFree Trialは最大3人まで選べます。
+            グループ名、アイコン色、参加キャラクターを選んで、
+            みんなで会話できる部屋を作ります。
           </p>
         </header>
 
@@ -379,8 +383,59 @@ export default async function NewGroupChatPage({
             </section>
 
             <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
+              <p className="text-sm font-semibold text-[#FACC15]">
+                STEP 2 / アイコン色
+              </p>
+
+              <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
+                一覧とチャット画面で表示するグループアイコンの色を選びます。
+                アイコンには、グループ名の最初の1文字が表示されます。
+              </p>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {GROUP_ICON_COLOR_OPTIONS.map((option) => {
+                  const colorClasses = getGroupIconClasses(option.value);
+
+                  return (
+                    <label key={option.value} className="block cursor-pointer">
+                      <input
+                        type="radio"
+                        name="groupIconColor"
+                        value={option.value}
+                        defaultChecked={option.value === "sky"}
+                        className="peer sr-only"
+                      />
+
+                      <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 transition peer-checked:border-[#BEF264]/40 peer-checked:bg-white/[0.08] peer-checked:ring-1 peer-checked:ring-[#BEF264]/35">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={[
+                              "flex h-12 w-12 items-center justify-center rounded-2xl border text-lg font-black",
+                              colorClasses.icon,
+                            ].join(" ")}
+                          >
+                            例
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-[#F4F1EA]">
+                              {option.label}
+                            </p>
+                            <p className="mt-1 text-xs text-[#A7B0C0]">
+                              {option.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/10 bg-[#111827]/80 p-5 shadow-2xl shadow-black/30">
               <p className="text-sm font-semibold text-[#BEF264]">
-                STEP 2 / 参加キャラクター
+                STEP 3 / 参加キャラクター
               </p>
 
               <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">

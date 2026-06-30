@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getGroupIconClasses,
+  getGroupInitial,
+} from "@/lib/fevcara/groupIcon";
 import { MESSAGE_LIMIT_REACHED_CODE, getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
 import { sendUserMessage } from "./actions";
 import { ScrollToLatestMessage } from "./ScrollToLatestMessage";
@@ -34,6 +38,7 @@ type ThreadRow = {
   title: string | null;
   chat_type: string;
   character_id: string | null;
+  group_icon_color: string | null;
   characters: CharacterRelation;
 };
 
@@ -263,6 +268,7 @@ export default async function ChatPage({
       title,
       chat_type,
       character_id,
+      group_icon_color,
       characters (
         id,
         temporary_name,
@@ -360,6 +366,8 @@ export default async function ChatPage({
 
   const characterName = isGroupChat ? groupDisplayName : singleCharacterName;
   const chatModeLabel = isGroupChat ? "GROUP CHAT" : "SINGLE CHAT";
+  const groupHeaderInitial = getGroupInitial(characterName);
+  const groupHeaderIconClasses = getGroupIconClasses(thread.group_icon_color);
   const characterIconUrl = isGroupChat ? null : character?.icon_image_url ?? null;
   const characterBackgroundUrl = isGroupChat ? null : character?.image_url ?? null;
 
@@ -584,14 +592,25 @@ export default async function ChatPage({
         <header className="sticky top-2 z-30 rounded-[1.5rem] border border-white/14 bg-[#0F172A]/68 p-3 shadow-xl shadow-black/16 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <CharacterAvatar
-                name={characterName}
-                imageUrl={characterIconUrl}
-                sizeClass="h-14 w-14"
-                roundedClass="rounded-2xl"
-                textClass="text-xl"
-                borderClass="border-[#BEF264]/25"
-              />
+              {isGroupChat ? (
+                <div
+                  className={[
+                    "relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border text-2xl font-black",
+                    groupHeaderIconClasses.icon,
+                  ].join(" ")}
+                >
+                  {groupHeaderInitial}
+                </div>
+              ) : (
+                <CharacterAvatar
+                  name={characterName}
+                  imageUrl={characterIconUrl}
+                  sizeClass="h-16 w-16"
+                  roundedClass="rounded-2xl"
+                  textClass="text-2xl"
+                  borderClass="border-[#BEF264]/25"
+                />
+              )}
 
               <span
                 className={[
@@ -610,6 +629,15 @@ export default async function ChatPage({
                 <h1 className="truncate text-lg font-black leading-tight text-white">
                   {characterName}
                 </h1>
+
+                {isGroupChat ? (
+                  <Link
+                    href={`/app/chats/group/${thread.id}/settings`}
+                    className="shrink-0 rounded-full border border-white/12 bg-white/[0.08] px-2 py-0.5 text-[10px] font-black text-[#F8FAFC] transition hover:bg-white/[0.14]"
+                  >
+                    編集
+                  </Link>
+                ) : null}
 
                 {isGroupChat ? (
                   <span className="shrink-0 rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-2 py-0.5 text-[10px] font-black text-[#BAE6FD]">
@@ -856,9 +884,9 @@ export default async function ChatPage({
                       <CharacterAvatar
                         name={speakerName}
                         imageUrl={speakerIconUrl}
-                        sizeClass="h-12 w-12"
+                        sizeClass="h-14 w-14"
                         roundedClass="rounded-2xl"
-                        textClass="text-base"
+                        textClass="text-lg"
                         borderClass="border-[#7DD3FC]/20"
                       />
                     </div>
