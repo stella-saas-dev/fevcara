@@ -80,6 +80,7 @@ type ChatThreadForAutonomousChat = {
 type ProfileForAutonomousChat = {
   id: string;
   plan: string | null;
+  user_profile_note: string | null;
 };
 
 type GeneratedCharacterMessageRow = {
@@ -212,6 +213,28 @@ function getTargetNicknameForSpeaker({
   const nickname = relationship?.target_nickname?.trim();
 
   return nickname || getCharacterName(target);
+}
+
+function buildAutonomousUserProfileNoteInstructions(
+  userProfileNote: string | null | undefined,
+) {
+  const note = userProfileNote?.trim();
+
+  if (!note) {
+    return `
+# ユーザーについての設定
+ユーザーが自由記述で登録した追加設定はまだありません。
+`.trim();
+  }
+
+  return `
+# ユーザーについての設定（背景情報）
+以下は、ユーザーがキャラクターたちに知っておいてほしい自分の情報です。
+自主会話では、ユーザーに直接話しかけるためではなく、キャラクター同士の話題選び・距離感・言葉選びの背景としてだけ参考にしてください。
+この内容を毎回そのまま復唱したり、ユーザーへ追加回答する形にしたりしないでください。
+
+${note}
+`.trim();
 }
 
 function escapeRegExp(value: string) {
@@ -726,6 +749,7 @@ function buildAutonomousGroupCharacterInstructions({
   totalReplies,
   workingMessages,
   characterMap,
+  userProfileNote,
 }: {
   speaker: CharacterForPrompt;
   members: CharacterForPrompt[];
@@ -734,8 +758,10 @@ function buildAutonomousGroupCharacterInstructions({
   totalReplies: number;
   workingMessages: GroupMessageForPrompt[];
   characterMap: Map<string, CharacterForPrompt>;
+  userProfileNote: string | null | undefined;
 }) {
   const speakerName = getCharacterName(speaker);
+  const userProfileNoteInstructions = buildAutonomousUserProfileNoteInstructions(userProfileNote);
   const memberLines = members
     .map((member) => {
       const memberName = getCharacterName(member);
@@ -828,6 +854,8 @@ ${buildGroupRelationshipInstructions({
   relationships,
 })}
 
+${userProfileNoteInstructions}
+
 ${previousReplyAvoidanceHint}
 
 ${directInteractionHint}
@@ -899,7 +927,7 @@ export async function generateAutonomousGroupChatForThread({
 }): Promise<GenerateAutonomousGroupChatResult> {
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
-    .select("id, plan")
+    .select("id, plan, user_profile_note")
     .eq("id", userId)
     .single();
 
@@ -1193,6 +1221,7 @@ export async function generateAutonomousGroupChatForThread({
           totalReplies: speakers.length,
           workingMessages,
           characterMap: fetchedCharacterMap,
+          userProfileNote: profile.user_profile_note,
         }),
         input,
         max_output_tokens: 260,

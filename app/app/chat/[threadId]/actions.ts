@@ -35,6 +35,7 @@ type ProfileForLimit = {
   id: string;
   plan: string | null;
   created_at: string;
+  user_profile_note: string | null;
 };
 
 type ProfileForCharacterAccess = {
@@ -601,7 +602,7 @@ async function checkAndRecordMessageUsage({
 }) {
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
-    .select("id, plan, created_at")
+    .select("id, plan, created_at, user_profile_note")
     .eq("id", userId)
     .single();
 
@@ -676,12 +677,34 @@ ${formatStringListForPrompt("ユーザーの好み・希望", summary.user_prefe
 `.trim();
 }
 
+function buildUserProfileNoteInstructions(userProfileNote: string | null | undefined) {
+  const note = userProfileNote?.trim();
+
+  if (!note) {
+    return `
+# ユーザーについての設定
+ユーザーが自由記述で登録した追加設定はまだありません。
+`.trim();
+  }
+
+  return `
+# ユーザーについての設定
+以下は、ユーザーがキャラクターたちに知っておいてほしい自分の情報です。
+会話の参考にしてください。ただし、毎回そのまま復唱する必要はありません。
+必要なときだけ自然に反映し、押しつけがましく言及しないでください。
+
+${note}
+`.trim();
+}
+
 function buildCharacterInstructions(
   character: CharacterForPrompt,
   summary: ChatThreadSummary | null,
+  userProfileNote: string | null | undefined,
 ) {
   const characterName = getCharacterName(character);
   const longTermMemoryInstructions = buildLongTermMemoryInstructions(summary);
+  const userProfileNoteInstructions = buildUserProfileNoteInstructions(userProfileNote);
 
   return `
 あなたはFevCara内のAIキャラクター「${characterName}」です。
@@ -728,6 +751,8 @@ ${buildFirstPersonStrictInstructions(character)}
 苦手なもの: ${character.dislikes || "未設定"}
 
 ${longTermMemoryInstructions}
+
+${userProfileNoteInstructions}
 
 # 返答ルール
 - 日本語で返答してください。
@@ -1317,6 +1342,7 @@ function buildGroupCharacterInstructions({
   totalReplies,
   workingMessages,
   characterMap,
+  userProfileNote,
 }: {
   speaker: CharacterForPrompt;
   members: CharacterForPrompt[];
@@ -1325,8 +1351,10 @@ function buildGroupCharacterInstructions({
   totalReplies: number;
   workingMessages: GroupMessageForPrompt[];
   characterMap: Map<string, CharacterForPrompt>;
+  userProfileNote: string | null | undefined;
 }) {
   const speakerName = getCharacterName(speaker);
+  const userProfileNoteInstructions = buildUserProfileNoteInstructions(userProfileNote);
   const memberLines = members
     .map((member) => {
       const memberName = getCharacterName(member);
@@ -1430,6 +1458,8 @@ ${buildGroupRelationshipInstructions({
   members,
   relationships,
 })}
+
+${userProfileNoteInstructions}
 
 ${casualModeInstruction}
 
@@ -2122,6 +2152,7 @@ export async function sendUserMessage(formData: FormData) {
             totalReplies: speakers.length,
             workingMessages,
             characterMap: fetchedCharacterMap,
+            userProfileNote: profile.user_profile_note,
           }),
           input: buildGroupTurnConversationInput({
             workingMessages,
@@ -2322,7 +2353,11 @@ export async function sendUserMessage(formData: FormData) {
 
     const response = await openai.responses.create({
       model: getOpenAIModel(),
-      instructions: buildCharacterInstructions(character, currentSummary),
+      instructions: buildCharacterInstructions(
+        character,
+        currentSummary,
+        profile.user_profile_note,
+      ),
       input: buildConversationInput(recentMessages),
       max_output_tokens: 900,
     });

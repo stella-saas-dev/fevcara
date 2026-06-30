@@ -16,6 +16,11 @@ function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+function getTextOrNull(formData: FormData, key: string) {
+  const value = getText(formData, key);
+  return value || null;
+}
+
 function getCheckbox(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
@@ -44,6 +49,7 @@ function redirectWithError(message: string): never {
 export async function updateUserProfile(formData: FormData) {
   const displayName = getText(formData, "displayName");
   const treatmentPreference = getText(formData, "treatmentPreference");
+  const userProfileNote = getTextOrNull(formData, "userProfileNote");
 
   if (!displayName) {
     redirectWithError("FevCara内でのあなたの名前を入力してください。");
@@ -79,6 +85,7 @@ export async function updateUserProfile(formData: FormData) {
       .update({
         display_name: displayName,
         treatment_preference: treatmentPreference,
+        user_profile_note: userProfileNote,
         user_setup_completed: true,
       })
       .eq("id", user.id);
@@ -93,6 +100,7 @@ export async function updateUserProfile(formData: FormData) {
       plan: "free",
       display_name: displayName,
       treatment_preference: treatmentPreference,
+      user_profile_note: userProfileNote,
       user_setup_completed: true,
     });
 

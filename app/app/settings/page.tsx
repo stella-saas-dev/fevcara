@@ -23,6 +23,7 @@ type ProfileRow = {
   character_limit_choice_locked: boolean | null;
   display_name: string | null;
   treatment_preference: string | null;
+  user_profile_note: string | null;
   user_setup_completed: boolean | null;
 };
 
@@ -197,7 +198,7 @@ export default async function SettingsPage({
   const { data: profileData } = await supabase
     .from("profiles")
     .select(
-      "plan, active_character_id, character_limit_choice_locked, display_name, treatment_preference, user_setup_completed",
+      "plan, active_character_id, character_limit_choice_locked, display_name, treatment_preference, user_profile_note, user_setup_completed",
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -208,6 +209,7 @@ export default async function SettingsPage({
     character_limit_choice_locked: false,
     display_name: "",
     treatment_preference: "unspecified",
+    user_profile_note: "",
     user_setup_completed: false,
   }) as ProfileRow;
 
@@ -345,6 +347,27 @@ export default async function SettingsPage({
                   キャラクターにどう呼ばれたいかは、キャラクターごとの設定や出会いイベントで決められます。
                 </p>
               </div>
+
+              <label className="block rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 p-4">
+                <span className="block text-sm font-black text-[#F4F1EA]">
+                  キャラクターに知っておいてほしいこと
+                </span>
+                <span className="mt-2 block text-xs leading-6 text-[#A7B0C0]">
+                  あなたの性格、話しかけられ方の好み、生活リズム、苦手なこと、創作・仕事・相談で大事にしていることなどを自由に書けます。
+                  キャラクターたちがあなたを理解するための参考にします。
+                </span>
+                <textarea
+                  name="userProfileNote"
+                  defaultValue={profile.user_profile_note ?? ""}
+                  placeholder="例：夜に作業することが多い。いきなり強い口調で急かされるのは苦手。創作の相談では、まずアイデアを広げてから現実的に整理してほしい。"
+                  rows={6}
+                  maxLength={2000}
+                  className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-[#0B1220]/50 px-4 py-4 text-base leading-7 text-[#F8FAFC] shadow-inner shadow-black/20 outline-none placeholder:text-[#94A3B8] caret-[#BEF264] focus:border-[#BEF264]/70 focus:bg-[#0B1220]/65 sm:text-sm"
+                />
+                <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
+                  ここに書いた内容は、必要なときだけ自然に会話へ反映します。毎回そのまま復唱させるための項目ではありません。
+                </p>
+              </label>
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-sm font-semibold text-[#F4F1EA]">
