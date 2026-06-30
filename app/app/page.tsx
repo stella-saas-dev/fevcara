@@ -590,7 +590,7 @@ export default async function AppHomePage() {
       : "/app/chats");
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.22),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_54%,#F1F5F9_100%)] px-5 pb-28 pt-8 text-[#1E293B]">
       <section className="mx-auto w-full max-w-md">
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -615,7 +615,7 @@ export default async function AppHomePage() {
         </header>
 
         {!isUserSetupCompleted ? (
-          <div className="mt-8 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-2xl shadow-black/30">
+          <div className="mt-8 rounded-[2rem] border border-[#FACC15]/45 bg-[#FEF9C3]/80 p-5 shadow-2xl shadow-black/30">
             <p className="text-sm font-black tracking-[0.16em] text-[#FDE68A]">
               FIRST SETUP
             </p>
@@ -647,7 +647,7 @@ export default async function AppHomePage() {
         ) : null}
 
         {trialBoostStatus.isActive ? (
-          <div className="mt-5 rounded-[2rem] border border-[#BEF264]/25 bg-[#BEF264]/10 p-5 shadow-xl shadow-[#BEF264]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#BEF264]/45 bg-[#F7FEE7]/85 p-5 shadow-xl shadow-[#BEF264]/5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-black tracking-[0.16em] text-[#D9F99D]">
@@ -658,7 +658,7 @@ export default async function AppHomePage() {
                 </h2>
               </div>
 
-              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
+              <span className="shrink-0 rounded-full border border-[#FACC15]/45 bg-[#FEF9C3]/80 px-3 py-1 text-xs font-black text-[#FDE68A]">
                 {trialBoostRemainingText}
               </span>
             </div>
@@ -840,7 +840,7 @@ export default async function AppHomePage() {
         </section>
 
         {needsActiveCharacterSelection ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/45 bg-[#FEF9C3]/80 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
               {activeSelectionTitle}
             </p>
@@ -882,7 +882,7 @@ export default async function AppHomePage() {
         <div className="mt-5 grid gap-3">
           <Link
             href="/app/chats"
-            className="flex items-center justify-between rounded-3xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
+            className="flex items-center justify-between rounded-3xl border border-[#7DD3FC]/45 bg-[#E0F2FE]/80 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
           >
             <div className="flex items-center gap-4">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7DD3FC]/18 text-xl">
@@ -919,7 +919,7 @@ export default async function AppHomePage() {
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FACC15]/18 text-xl">
                   ✦
                 </span>
-                <span className="text-base font-black text-[#FDE68A]">
+                <span className="text-base font-black text-[#CA8A04]">
                   新しいキャラクターを作る
                 </span>
               </div>

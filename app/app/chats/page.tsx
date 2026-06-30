@@ -276,7 +276,7 @@ export default async function ChatsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-4 pb-28 pt-6 text-[#F4F1EA] sm:px-5">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.22),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_54%,#F1F5F9_100%)] px-4 pb-28 pt-6 text-[#1E293B] sm:px-5">
       <section className="mx-auto w-full max-w-md">
         <header className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
@@ -320,12 +320,12 @@ export default async function ChatsPage() {
 
         <Link
           href="/app/chats/group/new"
-          className="mt-5 block rounded-[1.75rem] border border-[#7DD3FC]/25 bg-[#7DD3FC]/12 px-5 py-4 text-center shadow-xl shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
+          className="mt-5 block rounded-[1.75rem] border border-[#7DD3FC]/45 bg-[#E0F2FE]/80 px-5 py-4 text-center shadow-xl shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
         >
-          <span className="block text-sm font-black text-[#BAE6FD]">
+          <span className="block text-sm font-black text-[#0284C7]">
             グループチャットを作る
           </span>
-          <span className="mt-1 block text-xs leading-5 text-[#D8DEE9]">
+          <span className="mt-1 block text-xs leading-5 text-[#64748B]">
             Lite / Premium / 初回72時間トライアル中に利用できます
           </span>
         </Link>

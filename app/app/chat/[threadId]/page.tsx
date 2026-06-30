@@ -548,7 +548,7 @@ export default async function ChatPage({
     <main
       id="chat-scroll-container"
       className={[
-        "fixed inset-0 h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[calc(18rem+env(safe-area-inset-bottom))] pt-5 text-[#F4F1EA] sm:px-5",
+        "fixed inset-0 h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[calc(18rem+env(safe-area-inset-bottom))] pt-3 text-[#F4F1EA] sm:px-5",
         pageBackgroundClass,
       ].join(" ")}
     >
@@ -581,37 +581,21 @@ export default async function ChatPage({
       <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
 
       <section className="relative z-10 mx-auto w-full max-w-md">
-        <header className="sticky top-3 z-30 rounded-[2rem] border border-white/16 bg-[#0F172A]/54 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
-            <Link
-              href="/app/chats"
-              className="rounded-full border border-white/10 bg-white/[0.10] px-3 py-2 text-xs font-semibold text-[#E2E8F0] transition hover:border-[#7DD3FC]/40 hover:text-[#F8FAFC]"
-            >
-              ← チャット一覧
-            </Link>
-
-            <Link
-              href="/app/characters"
-              className="rounded-full border border-white/10 bg-white/[0.10] px-3 py-2 text-xs font-semibold text-[#E2E8F0] transition hover:border-[#BEF264]/40 hover:text-[#F8FAFC]"
-            >
-              キャラ一覧
-            </Link>
-          </div>
-
-          <div className="mt-5 flex items-center gap-4">
+        <header className="sticky top-2 z-30 rounded-[1.5rem] border border-white/14 bg-[#0F172A]/68 p-3 shadow-xl shadow-black/16 backdrop-blur-xl">
+          <div className="flex items-center gap-3">
             <div className="relative">
               <CharacterAvatar
                 name={characterName}
                 imageUrl={characterIconUrl}
-                sizeClass="h-14 w-14"
-                roundedClass="rounded-[1.4rem]"
-                textClass="text-2xl"
+                sizeClass="h-11 w-11"
+                roundedClass="rounded-2xl"
+                textClass="text-lg"
                 borderClass="border-[#BEF264]/25"
               />
 
               <span
                 className={[
-                  "absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0B1020]",
+                  "absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border border-[#0B1020]",
                   needsActiveCharacterSelection ||
                   isWaitingThreadCharacter ||
                   isGroupChatLocked
@@ -622,58 +606,50 @@ export default async function ChatPage({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-black tracking-[0.24em] text-[#7DD3FC]">
-                {chatModeLabel}
-              </p>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h1 className="break-words text-2xl font-black leading-tight text-white">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-lg font-black leading-tight text-white">
                   {characterName}
                 </h1>
 
                 {isGroupChat ? (
-                  <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-3 py-1 text-[10px] font-black text-[#BAE6FD]">
+                  <span className="shrink-0 rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-2 py-0.5 text-[10px] font-black text-[#BAE6FD]">
                     {groupCharacters.length}人
                   </span>
                 ) : null}
 
                 {trialBoostActive && isGroupChat ? (
-                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                  <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
                     Trial
                   </span>
                 ) : null}
 
                 {needsActiveCharacterSelection ? (
-                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                  <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
                     選択が必要
                   </span>
                 ) : null}
 
                 {isWaitingThreadCharacter ? (
-                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                  <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
                     待機中
                   </span>
                 ) : null}
 
                 {isGroupChatLocked ? (
-                  <span className="rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-[10px] font-black text-[#FDE68A]">
+                  <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
                     ロック中
                   </span>
                 ) : null}
               </div>
 
-              {isGroupChat && groupCharacters.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {groupCharacters.map((groupCharacter) => (
-                    <span
-                      key={groupCharacter.id}
-                      className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-bold text-[#D8DEE9]"
-                    >
-                      {getCharacterName(groupCharacter)}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-1 flex items-center gap-2 text-[10px] font-black tracking-[0.18em] text-[#7DD3FC]">
+                <span>{chatModeLabel}</span>
+                {isGroupChat && groupCharacters.length > 0 ? (
+                  <span className="min-w-0 truncate tracking-normal text-[#CBD5E1]">
+                    {groupCharacterNames.join("・")}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
         </header>

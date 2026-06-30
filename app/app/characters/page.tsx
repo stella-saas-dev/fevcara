@@ -294,14 +294,14 @@ export default async function CharactersPage({
     !isFreePlan || isTrialBoostActive;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.12),transparent_34%),#0B1020] px-5 pb-28 pt-8 text-[#F4F1EA]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.22),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_54%,#F1F5F9_100%)] px-5 pb-28 pt-8 text-[#1E293B]">
       <section className="mx-auto w-full max-w-md">
         <header>
           <p className="text-sm font-semibold tracking-[0.24em] text-[#7DD3FC]">
             CHARACTERS
           </p>
           <h1 className="mt-2 text-3xl font-black">キャラクター</h1>
-          <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+          <p className="mt-2 text-sm leading-6 text-[#64748B]">
             あなたが生み出したキャラクターたちが、ここに並びます。
           </p>
         </header>
@@ -326,7 +326,7 @@ export default async function CharactersPage({
                 </span>
 
                 {isTrialBoostActive ? (
-                  <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-3 py-1 text-xs font-black text-[#BAE6FD]">
+                  <span className="rounded-full border border-[#7DD3FC]/45 bg-[#E0F2FE]/80 px-3 py-1 text-xs font-black text-[#BAE6FD]">
                     残り約{trialBoost.remainingHours}時間
                   </span>
                 ) : null}

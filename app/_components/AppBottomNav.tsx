@@ -44,7 +44,7 @@ export function AppBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-slate-950/92 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-900/10 bg-[#07111F]/[0.94] px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_45px_rgba(15,23,42,0.20)] backdrop-blur-xl">
       <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1">
         {navItems.map((item) => {
           const isActive = item.match(pathname);
@@ -54,10 +54,10 @@ export function AppBottomNav() {
               key={item.href}
               href={item.href}
               className={[
-                "flex min-w-0 touch-manipulation flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-medium transition active:scale-[0.98]",
+                "flex min-w-0 touch-manipulation flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-semibold transition active:scale-[0.98]",
                 isActive
-                  ? "bg-lime-300/15 text-lime-200 shadow-[0_0_18px_rgba(190,242,100,0.18)]"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-100",
+                  ? "bg-[#BEF264]/[0.18] text-[#D9F99D] shadow-[0_0_18px_rgba(190,242,100,0.18)]"
+                  : "text-slate-300 hover:bg-white/[0.08] hover:text-white",
               ].join(" ")}
               aria-current={isActive ? "page" : undefined}
             >
