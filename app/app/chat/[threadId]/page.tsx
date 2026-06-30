@@ -368,10 +368,10 @@ export default async function ChatPage({
   );
 
   const pageBackgroundClass = isGroupChat
-    ? "bg-[#060A14]"
+    ? "bg-[#F8FAFC]"
     : characterBackgroundUrl
       ? "bg-[#EEF1F4]"
-      : "bg-[#0B1020]";
+      : "bg-[#F8FAFC]";
 
   const { data: messagesData } = await supabase
     .from("chat_messages")
@@ -554,11 +554,11 @@ export default async function ChatPage({
     >
       {isGroupChat ? (
         <>
-         <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_10%_10%,rgba(250,204,21,0.22),transparent_28%),radial-gradient(circle_at_88%_14%,rgba(125,211,252,0.24),transparent_28%),radial-gradient(circle_at_50%_100%,rgba(190,242,100,0.16),transparent_32%),linear-gradient(180deg,#FFFFFF_0%,#FFFDEB_48%,#EFF6FF_100%)]" />
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_10%_8%,rgba(250,204,21,0.22),transparent_30%),radial-gradient(circle_at_88%_14%,rgba(125,211,252,0.24),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(190,242,100,0.16),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#FFFDEB_46%,#EFF6FF_100%)]" />
 
-         <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.30),transparent_24%,rgba(255,255,255,0.12)_100%)]" />
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.50),transparent_24%,rgba(255,255,255,0.18)_100%)]" />
 
-         <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.60),transparent_62%)]" />
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.76),transparent_62%)]" />
         </>
       ) : characterBackgroundUrl ? (
         <>
@@ -581,21 +581,21 @@ export default async function ChatPage({
       <ScrollToLatestMessage latestMessageKey={latestMessageKey} />
 
       <section className="relative z-10 mx-auto w-full max-w-md">
-        <header className="sticky top-2 z-30 rounded-[1.5rem] border border-slate-200/80 bg-white/78 p-3 shadow-xl shadow-slate-300/20 backdrop-blur-xl">
+        <header className="sticky top-2 z-30 rounded-[1.5rem] border border-white/14 bg-[#0F172A]/68 p-3 shadow-xl shadow-black/16 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="relative">
               <CharacterAvatar
                 name={characterName}
                 imageUrl={characterIconUrl}
-                sizeClass="h-11 w-11"
+                sizeClass="h-14 w-14"
                 roundedClass="rounded-2xl"
-                textClass="text-lg"
+                textClass="text-xl"
                 borderClass="border-[#BEF264]/25"
               />
 
               <span
                 className={[
-                  "absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border border-[#0B1020]",
+                  "absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border border-[#0B1020]",
                   needsActiveCharacterSelection ||
                   isWaitingThreadCharacter ||
                   isGroupChatLocked
@@ -607,7 +607,7 @@ export default async function ChatPage({
 
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <h1 className="truncate text-lg font-black leading-tight text-[#0F172A]">
+                <h1 className="truncate text-lg font-black leading-tight text-white">
                   {characterName}
                 </h1>
 
@@ -856,9 +856,9 @@ export default async function ChatPage({
                       <CharacterAvatar
                         name={speakerName}
                         imageUrl={speakerIconUrl}
-                        sizeClass="h-10 w-10"
+                        sizeClass="h-12 w-12"
                         roundedClass="rounded-2xl"
-                        textClass="text-sm"
+                        textClass="text-base"
                         borderClass="border-[#7DD3FC]/20"
                       />
                     </div>

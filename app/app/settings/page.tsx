@@ -328,7 +328,7 @@ export default async function SettingsPage({
                   type="text"
                   defaultValue={profile.display_name ?? ""}
                   placeholder="例：そら"
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4 text-sm outline-none placeholder:text-[#6B7280] focus:border-[#BEF264]/60"
+                  className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0B1220]/50 px-4 py-4 text-base font-semibold text-[#F8FAFC] shadow-inner shadow-black/20 outline-none placeholder:text-[#94A3B8] caret-[#BEF264] focus:border-[#BEF264]/70 focus:bg-[#0B1220]/65 sm:text-sm"
                 />
                 <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
                   アプリ内で表示されるユーザー名です。
@@ -443,7 +443,7 @@ export default async function SettingsPage({
             <p className="text-xs font-black tracking-[0.2em] text-[#7DD3FC]">
               UPGRADE
             </p>
-            <h2 className="mt-2 text-xl font-black">
+            <h2 className="mt-2 text-xl font-black text-white">
               もっと長く、もっと自由に話す
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">

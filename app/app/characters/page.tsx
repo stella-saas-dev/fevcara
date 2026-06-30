@@ -430,7 +430,7 @@ export default async function CharactersPage({
         {characters.length >= 2 && canUseRelationshipFeatures ? (
           <Link
             href="/app/relationships"
-            className="mt-4 block rounded-2xl border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-5 py-4 text-center text-sm font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
+            className="mt-4 block rounded-2xl border border-[#7DD3FC]/55 bg-[#E0F2FE]/90 px-5 py-4 text-center text-sm font-black text-[#0369A1] shadow-lg shadow-[#7DD3FC]/10 transition hover:scale-[1.01] hover:bg-[#BAE6FD]/80"
           >
             キャラ同士の関係性を決める
           </Link>
