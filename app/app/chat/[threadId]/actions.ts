@@ -53,6 +53,7 @@ type CharacterRelationshipForPrompt = {
   from_character_id: string;
   to_character_id: string;
   relationship_label: string | null;
+  target_nickname: string | null;
   impression: string | null;
   speaking_style: string | null;
   group_chat_behavior: string | null;
@@ -931,18 +932,42 @@ function getPreviousCurrentTurnCharacterMessage({
   };
 }
 
+
+function getRelationshipTargetNickname({
+  speakerId,
+  targetId,
+  targetName,
+  relationships,
+}: {
+  speakerId: string;
+  targetId: string;
+  targetName: string;
+  relationships: CharacterRelationshipForPrompt[];
+}) {
+  const relationship = relationships.find(
+    (item) =>
+      item.from_character_id === speakerId && item.to_character_id === targetId,
+  );
+
+  const nickname = relationship?.target_nickname?.trim();
+
+  return nickname || targetName;
+}
+
 function buildGroupTurnConversationInput({
   workingMessages,
   characterMap,
   speaker,
   replyIndex,
   totalReplies,
+  relationships,
 }: {
   workingMessages: GroupMessageForPrompt[];
   characterMap: Map<string, CharacterForPrompt>;
   speaker: CharacterForPrompt;
   replyIndex: number;
   totalReplies: number;
+  relationships: CharacterRelationshipForPrompt[];
 }) {
   const speakerName = getCharacterName(speaker);
   const latestUserMessage = getLatestUserMessage(workingMessages);
@@ -971,6 +996,15 @@ function buildGroupTurnConversationInput({
     characterMap,
   });
 
+  const previousCharacterNickname = previousCharacterMessage
+    ? getRelationshipTargetNickname({
+        speakerId: speaker.id,
+        targetId: previousCharacterMessage.speaker.id,
+        targetName: previousCharacterMessage.speakerName,
+        relationships,
+      })
+    : null;
+
   const latestUserContent = latestUserMessage?.content || "";
   const isCasualTurn = isCasualGroupUserMessage(latestUserContent);
   const casualModeInstruction = buildCasualGroupChatModeInstruction(latestUserContent);
@@ -981,8 +1015,8 @@ function buildGroupTurnConversationInput({
         ? `あなたは${totalReplies}人中1人目の発言者です。ユーザーの軽い雑談に、まず自分の答えやリアクションを短く返してください。アドバイスや分析ではなく、会話の火種を作ってください。`
         : `あなたは${totalReplies}人中1人目の発言者です。ユーザーの最新発言に最初に反応してください。ただし、後続キャラクターが絡めるように、結論や提案を詰め込みすぎないでください。`
       : isCasualTurn
-        ? `あなたは${totalReplies}人中${replyIndex + 1}人目の発言者です。ユーザーへ真面目に答え直すのではなく、直前の「${previousCharacterMessage.speakerName}」に軽く絡みながら、自分の答えや好みを短く足してください。本文のどこかに自然な形で「${previousCharacterMessage.speakerName}」を入れてください。硬い分析は禁止です。`
-        : `あなたは${totalReplies}人中${replyIndex + 1}人目の発言者です。ユーザーへの直接返信は禁止です。直前の「${previousCharacterMessage.speakerName}」の発言に返してください。本文のどこかに自然な形で「${previousCharacterMessage.speakerName}」を入れ、${previousCharacterMessage.speakerName}への反応・補足・ツッコミ・別解釈のどれかを行ってください。ユーザーの最新発言をもう一度説明し直すことは禁止です。`;
+        ? `あなたは${totalReplies}人中${replyIndex + 1}人目の発言者です。ユーザーへ真面目に答え直すのではなく、直前の「${previousCharacterMessage.speakerName}」に軽く絡みながら、自分の答えや好みを短く足してください。関係性設定に呼び方がある場合は「${previousCharacterNickname}」と呼んでください。本文のどこかに自然な形で「${previousCharacterNickname}」を入れてください。硬い分析は禁止です。`
+        : `あなたは${totalReplies}人中${replyIndex + 1}人目の発言者です。ユーザーへの直接返信は禁止です。直前の「${previousCharacterMessage.speakerName}」の発言に返してください。関係性設定に呼び方がある場合は「${previousCharacterNickname}」と呼んでください。本文のどこかに自然な形で「${previousCharacterNickname}」を入れ、${previousCharacterNickname}への反応・補足・ツッコミ・別解釈のどれかを行ってください。ユーザーの最新発言をもう一度説明し直すことは禁止です。`;
 
   return [
     {
@@ -1042,6 +1076,7 @@ function buildGroupRelationshipInstructions({
     return [
       `- ${speakerName} から見た ${memberName}`,
       `  関係ラベル: ${relationship.relationship_label || "未設定"}`,
+      `  相手の呼び方: ${relationship.target_nickname || memberName}`,
       `  印象: ${relationship.impression || "未設定"}`,
       `  相手への話し方: ${relationship.speaking_style || "未設定"}`,
       `  グループチャットでの絡み方: ${relationship.group_chat_behavior || "未設定"}`,
@@ -1187,10 +1222,14 @@ function buildDirectCharacterInteractionHint({
   replyIndex,
   workingMessages,
   characterMap,
+  speaker,
+  relationships,
 }: {
   replyIndex: number;
   workingMessages: GroupMessageForPrompt[];
   characterMap: Map<string, CharacterForPrompt>;
+  speaker: CharacterForPrompt;
+  relationships: CharacterRelationshipForPrompt[];
 }) {
   const previousCharacterMessage = getPreviousCurrentTurnCharacterMessage({
     workingMessages,
@@ -1205,6 +1244,13 @@ function buildDirectCharacterInteractionHint({
 `.trim();
   }
 
+  const previousCharacterNickname = getRelationshipTargetNickname({
+    speakerId: speaker.id,
+    targetId: previousCharacterMessage.speaker.id,
+    targetName: previousCharacterMessage.speakerName,
+    relationships,
+  });
+
   return `
 # 今回の絡み先（最重要）
 あなたはユーザーに直接返答し直してはいけません。
@@ -1214,8 +1260,8 @@ function buildDirectCharacterInteractionHint({
 ${previousCharacterMessage.speakerName}: ${previousCharacterMessage.content}
 
 必須ルール:
-- 本文のどこかに「${previousCharacterMessage.speakerName}」を自然に入れてください。
-- 「${previousCharacterMessage.speakerName}」の発言への反応・補足・ツッコミ・別解釈のどれかをしてください。
+- 本文のどこかに「${previousCharacterNickname}」を自然に入れてください。
+- 「${previousCharacterNickname}」の発言への反応・補足・ツッコミ・別解釈のどれかをしてください。
 - ユーザーの最新発言を最初から説明し直さないでください。
 - 「いい判断」「正解」「満足できる」など、前キャラと同じ肯定を言い換えるだけは禁止です。
 - 雑談のときは、会議のまとめ・分析・観察レポートのように話さず、短くテンポよく返してください。
@@ -1227,11 +1273,15 @@ function ensureCharacterInteractionReply({
   replyIndex,
   workingMessages,
   characterMap,
+  speaker,
+  relationships,
 }: {
   text: string;
   replyIndex: number;
   workingMessages: GroupMessageForPrompt[];
   characterMap: Map<string, CharacterForPrompt>;
+  speaker: CharacterForPrompt;
+  relationships: CharacterRelationshipForPrompt[];
 }) {
   const previousCharacterMessage = getPreviousCurrentTurnCharacterMessage({
     workingMessages,
@@ -1242,11 +1292,21 @@ function ensureCharacterInteractionReply({
     return text;
   }
 
-  if (text.includes(previousCharacterMessage.speakerName)) {
+  const previousCharacterNickname = getRelationshipTargetNickname({
+    speakerId: speaker.id,
+    targetId: previousCharacterMessage.speaker.id,
+    targetName: previousCharacterMessage.speakerName,
+    relationships,
+  });
+
+  if (
+    text.includes(previousCharacterMessage.speakerName) ||
+    text.includes(previousCharacterNickname)
+  ) {
     return text;
   }
 
-  return `${previousCharacterMessage.speakerName}、${text}`.trim();
+  return `${previousCharacterNickname}、${text}`.trim();
 }
 
 function buildGroupCharacterInstructions({
@@ -1297,6 +1357,8 @@ function buildGroupCharacterInstructions({
     replyIndex,
     workingMessages,
     characterMap,
+    speaker,
+    relationships,
   });
 
   const latestUserMessage = getLatestUserMessage(workingMessages);
@@ -1954,6 +2016,7 @@ export async function sendUserMessage(formData: FormData) {
         from_character_id,
         to_character_id,
         relationship_label,
+        target_nickname,
         impression,
         speaking_style,
         group_chat_behavior,
@@ -2066,6 +2129,7 @@ export async function sendUserMessage(formData: FormData) {
             speaker,
             replyIndex: index,
             totalReplies: speakers.length,
+            relationships,
           }),
           max_output_tokens: isCasualTurn ? 220 : 300,
         });
@@ -2083,6 +2147,8 @@ export async function sendUserMessage(formData: FormData) {
           replyIndex: index,
           workingMessages,
           characterMap: fetchedCharacterMap,
+          speaker,
+          relationships,
         });
 
         if (!aiReply) {

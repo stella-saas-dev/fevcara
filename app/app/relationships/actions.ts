@@ -55,6 +55,7 @@ export async function saveCharacterRelationshipPair(formData: FormData) {
       from_character_id: aCharacterId,
       to_character_id: bCharacterId,
       relationship_label: getTextOrNull(formData, "abRelationshipLabel"),
+      target_nickname: getTextOrNull(formData, "abTargetNickname"),
       impression: getTextOrNull(formData, "abImpression"),
       speaking_style: getTextOrNull(formData, "abSpeakingStyle"),
       group_chat_behavior: getTextOrNull(formData, "abGroupChatBehavior"),
@@ -65,6 +66,7 @@ export async function saveCharacterRelationshipPair(formData: FormData) {
       from_character_id: bCharacterId,
       to_character_id: aCharacterId,
       relationship_label: getTextOrNull(formData, "baRelationshipLabel"),
+      target_nickname: getTextOrNull(formData, "baTargetNickname"),
       impression: getTextOrNull(formData, "baImpression"),
       speaking_style: getTextOrNull(formData, "baSpeakingStyle"),
       group_chat_behavior: getTextOrNull(formData, "baGroupChatBehavior"),
@@ -83,5 +85,6 @@ export async function saveCharacterRelationshipPair(formData: FormData) {
   }
 
   revalidatePath("/app/relationships");
+  revalidatePath("/app/chats");
   redirect("/app/relationships?saved=1");
 }
