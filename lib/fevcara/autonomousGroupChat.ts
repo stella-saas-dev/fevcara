@@ -23,6 +23,7 @@ type CharacterRelationshipForPrompt = {
   from_character_id: string;
   to_character_id: string;
   relationship_label: string | null;
+  target_nickname: string | null;
   impression: string | null;
   speaking_style: string | null;
   group_chat_behavior: string | null;
@@ -173,6 +174,44 @@ function getCharacterName(character: CharacterForPrompt) {
     character.temporary_name ||
     "名前のないキャラクター"
   );
+}
+
+function getRelationshipBetweenCharacters({
+  fromCharacterId,
+  toCharacterId,
+  relationships,
+}: {
+  fromCharacterId: string;
+  toCharacterId: string;
+  relationships: CharacterRelationshipForPrompt[];
+}) {
+  return (
+    relationships.find(
+      (relationship) =>
+        relationship.from_character_id === fromCharacterId &&
+        relationship.to_character_id === toCharacterId,
+    ) ?? null
+  );
+}
+
+function getTargetNicknameForSpeaker({
+  speaker,
+  target,
+  relationships,
+}: {
+  speaker: CharacterForPrompt;
+  target: CharacterForPrompt;
+  relationships: CharacterRelationshipForPrompt[];
+}) {
+  const relationship = getRelationshipBetweenCharacters({
+    fromCharacterId: speaker.id,
+    toCharacterId: target.id,
+    relationships,
+  });
+
+  const nickname = relationship?.target_nickname?.trim();
+
+  return nickname || getCharacterName(target);
 }
 
 function escapeRegExp(value: string) {
@@ -455,18 +494,22 @@ function buildGroupRelationshipInstructions({
   const lines = otherMembers.map((member) => {
     const memberName = getCharacterName(member);
 
-    const relationship = relationships.find(
-      (item) =>
-        item.from_character_id === speaker.id &&
-        item.to_character_id === member.id,
-    );
+    const relationship = getRelationshipBetweenCharacters({
+      fromCharacterId: speaker.id,
+      toCharacterId: member.id,
+      relationships,
+    });
 
     if (!relationship) {
-      return `- ${speakerName} から見た ${memberName}: 未設定。自然に接してください。`;
+      return [
+        `- ${speakerName} から見た ${memberName}: 未設定。自然に接してください。`,
+        `  相手の呼び方: ${memberName}`,
+      ].join("\n");
     }
 
     return [
       `- ${speakerName} から見た ${memberName}`,
+      `  相手の呼び方: ${relationship.target_nickname || memberName}`,
       `  関係ラベル: ${relationship.relationship_label || "未設定"}`,
       `  印象: ${relationship.impression || "未設定"}`,
       `  相手への話し方: ${relationship.speaking_style || "未設定"}`,
@@ -478,6 +521,11 @@ function buildGroupRelationshipInstructions({
   return `
 # キャラ同士の関係性
 ${lines.join("\n")}
+
+# キャラ同士の呼び方ルール
+- 他キャラクターに呼びかけるときは、上の「相手の呼び方」を最優先してください。
+- 相手の正式名ではなく呼び方が設定されている場合は、その呼び方で自然に呼んでください。
+- 呼び方が未設定の場合のみ、相手の名前をそのまま使ってください。
 `.trim();
 }
 
@@ -585,6 +633,91 @@ ${lines.join("\n")}
 `.trim();
 }
 
+function getPreviousAutonomousCharacterMessage({
+  workingMessages,
+  characterMap,
+}: {
+  workingMessages: GroupMessageForPrompt[];
+  characterMap: Map<string, CharacterForPrompt>;
+}) {
+  const previousCharacterMessage = [
+    ...getCurrentAutonomousTurnPreviousCharacterMessages(workingMessages),
+  ]
+    .reverse()
+    .find((message) => message.character_id);
+
+  if (!previousCharacterMessage?.character_id) {
+    return null;
+  }
+
+  const previousSpeaker = characterMap.get(previousCharacterMessage.character_id);
+
+  if (!previousSpeaker) {
+    return null;
+  }
+
+  return {
+    speaker: previousSpeaker,
+    speakerName: getCharacterName(previousSpeaker),
+    content: previousCharacterMessage.content,
+  };
+}
+
+function buildAutonomousDirectInteractionHint({
+  speaker,
+  relationships,
+  replyIndex,
+  workingMessages,
+  characterMap,
+}: {
+  speaker: CharacterForPrompt;
+  relationships: CharacterRelationshipForPrompt[];
+  replyIndex: number;
+  workingMessages: GroupMessageForPrompt[];
+  characterMap: Map<string, CharacterForPrompt>;
+}) {
+  const previousCharacterMessage = getPreviousAutonomousCharacterMessage({
+    workingMessages,
+    characterMap,
+  });
+
+  if (replyIndex === 0 || !previousCharacterMessage) {
+    return `
+# 自主会話の呼び方
+あなたが他キャラクターに話を振る場合は、関係性設定の「相手の呼び方」を優先してください。
+呼び方が未設定の場合だけ、相手の名前をそのまま使ってください。
+`.trim();
+  }
+
+  const previousSpeakerNickname = getTargetNicknameForSpeaker({
+    speaker,
+    target: previousCharacterMessage.speaker,
+    relationships,
+  });
+
+  const useOfficialNameNote =
+    previousSpeakerNickname === previousCharacterMessage.speakerName
+      ? "呼び方が正式名と同じなので、そのまま自然に呼んでください。"
+      : `正式名「${previousCharacterMessage.speakerName}」ではなく、設定呼称「${previousSpeakerNickname}」で呼んでください。`;
+
+  return `
+# 今回の絡み先と呼び方（最重要）
+直前の発言者は「${previousCharacterMessage.speakerName}」です。
+${speaker ? getCharacterName(speaker) : "このキャラクター"} から見たこの相手の呼び方は「${previousSpeakerNickname}」です。
+${useOfficialNameNote}
+
+直前の発言:
+${previousCharacterMessage.speakerName}: ${previousCharacterMessage.content}
+
+必須ルール:
+- 直前のキャラクターに反応する場合は、本文のどこかに「${previousSpeakerNickname}」を自然に入れてください。
+- 「${previousSpeakerNickname}」への反応・補足・ツッコミ・別解釈・余韻のどれかをしてください。
+- ユーザーへ直接返答し直さないでください。
+- 直近ログ内のユーザー発言を今の質問として扱わないでください。
+`.trim();
+}
+
+
 function buildAutonomousGroupCharacterInstructions({
   speaker,
   members,
@@ -625,6 +758,14 @@ function buildAutonomousGroupCharacterInstructions({
   });
 
   const previousReplyAvoidanceHint = buildPreviousReplyAvoidanceHint({
+    workingMessages,
+    characterMap,
+  });
+
+  const directInteractionHint = buildAutonomousDirectInteractionHint({
+    speaker,
+    relationships,
+    replyIndex,
     workingMessages,
     characterMap,
   });
@@ -689,6 +830,8 @@ ${buildGroupRelationshipInstructions({
 
 ${previousReplyAvoidanceHint}
 
+${directInteractionHint}
+
 # 自主会話ルール
 - 日本語で返答してください。
 - 「${speakerName}」としての口調を守ってください。
@@ -700,7 +843,7 @@ ${previousReplyAvoidanceHint}
 - ユーザーに質問攻めしないでください。
 - キャラクター同士の自然な一言として話してください。
 - 他キャラとの関係性を自然に反映してください。
-- 他キャラの名前を呼ぶのはOKです。
+- 他キャラに呼びかけるときは、関係性設定の「相手の呼び方」を優先してください。
 - 返答本文の冒頭に自分の名前や名前ラベルを付けないでください。
 - 返答は「${speakerName}自身の1発言」だけにしてください。
 - 複数キャラクターの台本形式や、他キャラクターのセリフの代筆は絶対にしないでください。
@@ -932,6 +1075,7 @@ export async function generateAutonomousGroupChatForThread({
       from_character_id,
       to_character_id,
       relationship_label,
+      target_nickname,
       impression,
       speaking_style,
       group_chat_behavior,
@@ -1080,7 +1224,7 @@ export async function generateAutonomousGroupChatForThread({
           source,
           reply_index: index,
           reply_total: speakers.length,
-          generation_rule: "autonomous_character_to_character_no_user_reply",
+          generation_rule: "autonomous_character_to_character_with_relationship_nicknames",
         },
       });
 
@@ -1141,7 +1285,7 @@ export async function generateAutonomousGroupChatForThread({
       source,
       generated_message_count: characterMessageRows.length,
       group_name: thread.title || "グループチャット",
-      generation_rule: "autonomous_character_to_character_no_user_reply",
+      generation_rule: "autonomous_character_to_character_with_relationship_nicknames",
     },
   });
 
