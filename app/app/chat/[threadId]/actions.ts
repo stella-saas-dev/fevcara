@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createOpenAIClient, getOpenAIModel } from "@/lib/openai/client";
@@ -2150,6 +2151,8 @@ export async function sendUserMessage(formData: FormData) {
       .eq("id", thread.id)
       .eq("user_id", user.id);
 
+    revalidatePath(`/app/chat/${thread.id}`);
+    revalidatePath("/app/chats");
     redirect(`/app/chat/${thread.id}`);
   }
 
@@ -2310,5 +2313,7 @@ export async function sendUserMessage(formData: FormData) {
     .eq("id", thread.id)
     .eq("user_id", user.id);
 
+  revalidatePath(`/app/chat/${thread.id}`);
+  revalidatePath("/app/chats");
   redirect(`/app/chat/${thread.id}`);
 }

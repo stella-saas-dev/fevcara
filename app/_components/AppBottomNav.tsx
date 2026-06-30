@@ -44,8 +44,8 @@ export function AppBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-slate-950/90 px-3 py-2 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-slate-950/92 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
+      <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-1">
         {navItems.map((item) => {
           const isActive = item.match(pathname);
 
@@ -54,7 +54,7 @@ export function AppBottomNav() {
               key={item.href}
               href={item.href}
               className={[
-                "flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-medium transition",
+                "flex min-w-0 touch-manipulation flex-col items-center justify-center rounded-2xl px-2 py-2 text-[11px] font-medium transition active:scale-[0.98]",
                 isActive
                   ? "bg-lime-300/15 text-lime-200 shadow-[0_0_18px_rgba(190,242,100,0.18)]"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-100",
@@ -62,7 +62,7 @@ export function AppBottomNav() {
               aria-current={isActive ? "page" : undefined}
             >
               <span className="text-base leading-none">{item.icon}</span>
-              <span className="mt-1">{item.label}</span>
+              <span className="mt-1 truncate">{item.label}</span>
             </Link>
           );
         })}

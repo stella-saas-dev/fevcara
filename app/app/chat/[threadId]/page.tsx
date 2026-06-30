@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MESSAGE_LIMIT_REACHED_CODE, getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
 import { sendUserMessage } from "./actions";
 import { ScrollToLatestMessage } from "./ScrollToLatestMessage";
+import { ChatSubmitButton } from "./ChatSubmitButton";
 
 type ChatPageProps = {
   params: Promise<{
@@ -78,6 +79,8 @@ type ChatThreadSummary = {
   summarized_until_created_at: string | null;
   updated_at: string | null;
 };
+
+export const dynamic = "force-dynamic";
 
 const FREE_TRIAL_BOOST_HOURS = 72;
 
@@ -282,7 +285,7 @@ export default async function ChatPage({
   const thread = threadData as ThreadRow;
   const isGroupChat = thread.chat_type === "group";
 
-    if (isGroupChat) {
+  if (isGroupChat) {
     await supabase
       .from("notifications")
       .update({
@@ -543,8 +546,9 @@ export default async function ChatPage({
 
   return (
     <main
+      id="chat-scroll-container"
       className={[
-        "relative min-h-screen overflow-hidden px-4 pb-[18rem] pt-5 text-[#F4F1EA] sm:px-5",
+        "fixed inset-0 h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-[calc(18rem+env(safe-area-inset-bottom))] pt-5 text-[#F4F1EA] sm:px-5",
         pageBackgroundClass,
       ].join(" ")}
     >
@@ -956,11 +960,13 @@ export default async function ChatPage({
             </div>
           )}
         </div>
+
+        <div id="chat-latest-message" className="h-1" aria-hidden="true" />
       </section>
 
       <form
         action={sendUserMessage}
-        className="fixed inset-x-0 bottom-[5.25rem] z-40 px-4 sm:px-5"
+        className="fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 px-4 sm:px-5"
       >
         <div className="mx-auto max-w-md rounded-[2rem] border border-white/14 bg-[#0F172A]/50 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
           <input type="hidden" name="threadId" value={thread.id} />
@@ -1042,7 +1048,8 @@ export default async function ChatPage({
               rows={3}
               required
               disabled={isMessageInputDisabled}
-              className="w-full resize-none rounded-[1.5rem] border border-white/14 bg-[#0B1020]/40 px-4 py-3 text-sm leading-6 text-[#F8FAFC] outline-none placeholder:text-[#CBD5E1] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/50"
+              enterKeyHint="send"
+              className="w-full resize-none rounded-[1.5rem] border border-white/14 bg-[#0B1020]/40 px-4 py-3 text-base leading-6 text-[#F8FAFC] outline-none placeholder:text-[#CBD5E1] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-50 focus:border-[#BEF264]/50 sm:text-sm"
             />
           </label>
 
@@ -1074,24 +1081,16 @@ export default async function ChatPage({
             {needsActiveCharacterSelection ? (
               <Link
                 href="/app/characters/select-active"
-                className="shrink-0 rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition hover:scale-[1.02] hover:opacity-95"
+                className="shrink-0 rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition active:scale-[0.98] hover:scale-[1.02] hover:opacity-95"
               >
                 選ぶ
               </Link>
             ) : (
-              <button
-                type="submit"
+              <ChatSubmitButton
                 disabled={isMessageInputDisabled}
-                className="shrink-0 rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-6 py-3 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.02] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {isGroupChatLocked
-                  ? "ロック中"
-                  : isWaitingThreadCharacter
-                    ? "待機中"
-                    : isMessageInputDisabled
-                      ? "今月はここまで"
-                      : "送信"}
-              </button>
+                isGroupChatLocked={isGroupChatLocked}
+                isWaitingThreadCharacter={isWaitingThreadCharacter}
+              />
             )}
           </div>
         </div>

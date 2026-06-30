@@ -10,19 +10,34 @@ export function ScrollToLatestMessage({
   latestMessageKey,
 }: ScrollToLatestMessageProps) {
   useEffect(() => {
-    const firstFrame = window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: "auto",
-      });
-    });
+    const scrollToLatest = () => {
+      const container = document.getElementById("chat-scroll-container");
+      const marker = document.getElementById("chat-latest-message");
 
-    const secondFrame = window.setTimeout(() => {
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "auto",
+        });
+        return;
+      }
+
+      if (marker) {
+        marker.scrollIntoView({
+          block: "end",
+          behavior: "auto",
+        });
+        return;
+      }
+
       window.scrollTo({
         top: document.documentElement.scrollHeight,
         behavior: "auto",
       });
-    }, 120);
+    };
+
+    const firstFrame = window.requestAnimationFrame(scrollToLatest);
+    const secondFrame = window.setTimeout(scrollToLatest, 160);
 
     return () => {
       window.cancelAnimationFrame(firstFrame);
