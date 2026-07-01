@@ -6,6 +6,10 @@ import {
   GROUP_ICON_COLOR_OPTIONS,
   getGroupIconClasses,
 } from "@/lib/fevcara/groupIcon";
+import {
+  GROUP_ROLE_MAX_TAGS,
+  GROUP_ROLE_OPTIONS,
+} from "@/lib/fevcara/groupRoles";
 import { createGroupChat } from "./actions";
 
 type GroupNewPageProps = {
@@ -444,6 +448,7 @@ export default async function NewGroupChatPage({
               </p>
               <p className="mt-2 text-xs leading-5 text-[#D8DEE9]">
                 参加人数を増やしても、1ターンで返信するキャラクター数は会話の自然さを保つために自動調整されます。
+                各キャラクターには、このグループ内での役割を最大{GROUP_ROLE_MAX_TAGS}個まで設定できます。
               </p>
 
               <div className="mt-5 grid gap-3">
@@ -483,6 +488,32 @@ export default async function NewGroupChatPage({
                             {character.expertise}
                           </p>
                         ) : null}
+
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-3">
+                          <p className="text-xs font-black text-[#F4F1EA]">
+                            このグループでの役割
+                            <span className="ml-2 font-semibold text-[#A7B0C0]">
+                              最大{GROUP_ROLE_MAX_TAGS}個
+                            </span>
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {GROUP_ROLE_OPTIONS.map((roleOption) => (
+                              <label
+                                key={roleOption.value}
+                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-bold text-[#D8DEE9] transition hover:border-[#BEF264]/35 hover:bg-white/[0.08]"
+                              >
+                                <input
+                                  type="checkbox"
+                                  name={`groupRoleTags:${character.id}`}
+                                  value={roleOption.value}
+                                  className="accent-[#BEF264]"
+                                />
+                                <span>{roleOption.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </label>
                   );

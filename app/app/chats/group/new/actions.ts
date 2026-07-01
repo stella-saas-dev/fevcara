@@ -3,6 +3,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeGroupIconColor } from "@/lib/fevcara/groupIcon";
+import {
+  GROUP_ROLE_MAX_TAGS,
+  normalizeGroupRoleTags,
+} from "@/lib/fevcara/groupRoles";
 
 type PlanTier = "free" | "premium_lite" | "premium";
 
@@ -271,12 +275,25 @@ export async function createGroupChat(formData: FormData) {
 
   const thread = threadData as { id: string };
 
-  const memberRows = selectedCharacters.map((character, index) => ({
-    thread_id: thread.id,
-    user_id: user.id,
-    character_id: character.id,
-    display_order: index,
-  }));
+  const memberRows = selectedCharacters.map((character, index) => {
+    const groupRoleTags = normalizeGroupRoleTags(
+      formData.getAll(`groupRoleTags:${character.id}`),
+    );
+
+    if (groupRoleTags.length > GROUP_ROLE_MAX_TAGS) {
+      redirectWithError(
+        `${getCharacterName(character)}のグループ内役割は最大${GROUP_ROLE_MAX_TAGS}個まで選べます。`,
+      );
+    }
+
+    return {
+      thread_id: thread.id,
+      user_id: user.id,
+      character_id: character.id,
+      display_order: index,
+      group_role_tags: groupRoleTags,
+    };
+  });
 
   const { error: membersError } = await supabase
     .from("group_chat_members")

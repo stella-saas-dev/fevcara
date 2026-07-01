@@ -8,6 +8,11 @@ import {
   getGroupInitial,
   normalizeGroupIconColor,
 } from "@/lib/fevcara/groupIcon";
+import {
+  GROUP_ROLE_MAX_TAGS,
+  GROUP_ROLE_OPTIONS,
+  getGroupRoleLabels,
+} from "@/lib/fevcara/groupRoles";
 import { updateGroupChatSettings } from "./actions";
 
 type GroupSettingsPageProps = {
@@ -29,7 +34,60 @@ type ThreadRow = {
 
 type GroupMemberRow = {
   character_id: string;
+  group_role_tags: string[] | null;
 };
+
+type CharacterRow = {
+  id: string;
+  temporary_name: string | null;
+  final_name: string | null;
+  role_name: string | null;
+  icon_image_url: string | null;
+};
+
+function getCharacterName(character: CharacterRow | null | undefined) {
+  if (!character) {
+    return "キャラクター";
+  }
+
+  return (
+    character.final_name ||
+    character.temporary_name ||
+    "名前のないキャラクター"
+  );
+}
+
+function getAvatarText(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    return "◇";
+  }
+
+  return trimmedName.slice(0, 1);
+}
+
+function CharacterAvatar({
+  name,
+  imageUrl,
+}: {
+  name: string;
+  imageUrl: string | null;
+}) {
+  if (imageUrl) {
+    return (
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-[#BEF264]/25 bg-white shadow-lg shadow-[#7DD3FC]/10">
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 to-[#7DD3FC]/20 text-lg font-black text-[#F4F1EA]">
+      {getAvatarText(name)}
+    </div>
+  );
+}
 
 export default async function GroupSettingsPage({
   params,
@@ -66,11 +124,38 @@ export default async function GroupSettingsPage({
 
   const { data: membersData } = await supabase
     .from("group_chat_members")
-    .select("character_id")
+    .select("character_id, group_role_tags")
     .eq("thread_id", thread.id)
     .eq("user_id", user.id);
 
   const members = (membersData ?? []) as GroupMemberRow[];
+  const memberCharacterIds = members.map((member) => member.character_id);
+
+  let characters: CharacterRow[] = [];
+
+  if (memberCharacterIds.length > 0) {
+    const { data: charactersData } = await supabase
+      .from("characters")
+      .select("id, temporary_name, final_name, role_name, icon_image_url")
+      .eq("user_id", user.id)
+      .in("id", memberCharacterIds);
+
+    const characterMap = new Map(
+      ((charactersData ?? []) as CharacterRow[]).map((character) => [
+        character.id,
+        character,
+      ]),
+    );
+
+    characters = memberCharacterIds
+      .map((characterId) => characterMap.get(characterId) ?? null)
+      .filter((character): character is CharacterRow => Boolean(character));
+  }
+
+  const memberMap = new Map(
+    members.map((member) => [member.character_id, member]),
+  );
+
   const title = thread.title || "グループチャット";
   const currentColor = normalizeGroupIconColor(thread.group_icon_color);
   const previewClasses = getGroupIconClasses(currentColor);
@@ -206,6 +291,79 @@ export default async function GroupSettingsPage({
                       </div>
                     </div>
                   </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-white/10 pt-6">
+            <p className="text-sm font-semibold text-[#D8DEE9]">
+              キャラクターごとのグループ内役割
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#A7B0C0]">
+              相談と雑談の会話バランスを作るための役割です。
+              各キャラクターにつき最大{GROUP_ROLE_MAX_TAGS}個まで選べます。
+            </p>
+
+            <div className="mt-4 grid gap-4">
+              {characters.map((character) => {
+                const member = memberMap.get(character.id) ?? null;
+                const selectedRoleLabels = getGroupRoleLabels(
+                  member?.group_role_tags,
+                );
+                const characterName = getCharacterName(character);
+
+                return (
+                  <div
+                    key={character.id}
+                    className="rounded-3xl border border-white/10 bg-white/[0.04] p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <CharacterAvatar
+                        name={characterName}
+                        imageUrl={character.icon_image_url}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-black text-[#F4F1EA]">
+                          {characterName}
+                        </p>
+
+                        {character.role_name ? (
+                          <p className="mt-1 text-xs font-bold text-[#BAE6FD]">
+                            {character.role_name}
+                          </p>
+                        ) : null}
+
+                        <p className="mt-2 text-[11px] leading-5 text-[#A7B0C0]">
+                          現在：
+                          {selectedRoleLabels.length > 0
+                            ? selectedRoleLabels.join(" / ")
+                            : "未設定"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {GROUP_ROLE_OPTIONS.map((roleOption) => (
+                        <label
+                          key={roleOption.value}
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-black/10 px-3 py-1.5 text-[11px] font-bold text-[#D8DEE9] transition hover:border-[#BEF264]/35 hover:bg-white/[0.08]"
+                        >
+                          <input
+                            type="checkbox"
+                            name={`groupRoleTags:${character.id}`}
+                            value={roleOption.value}
+                            defaultChecked={Boolean(
+                              member?.group_role_tags?.includes(roleOption.value),
+                            )}
+                            className="accent-[#BEF264]"
+                          />
+                          <span>{roleOption.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 );
               })}
             </div>

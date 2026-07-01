@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { normalizeGroupIconColor } from "@/lib/fevcara/groupIcon";
+import {
+  GROUP_ROLE_MAX_TAGS,
+  normalizeGroupRoleTags,
+} from "@/lib/fevcara/groupRoles";
 import { createClient } from "@/lib/supabase/server";
 
 function getText(formData: FormData, key: string) {
@@ -59,6 +63,44 @@ export async function updateGroupChatSettings(formData: FormData) {
 
   if (thread.chat_type !== "group") {
     redirectWithError(threadId, "グループチャットだけ編集できます。");
+  }
+
+  const { data: membersData, error: membersFetchError } = await supabase
+    .from("group_chat_members")
+    .select("character_id")
+    .eq("thread_id", threadId)
+    .eq("user_id", user.id);
+
+  if (membersFetchError) {
+    redirectWithError(threadId, "グループメンバーの取得に失敗しました。");
+  }
+
+  const members = (membersData ?? []) as { character_id: string }[];
+
+  for (const member of members) {
+    const groupRoleTags = normalizeGroupRoleTags(
+      formData.getAll(`groupRoleTags:${member.character_id}`),
+    );
+
+    if (groupRoleTags.length > GROUP_ROLE_MAX_TAGS) {
+      redirectWithError(
+        threadId,
+        `各キャラクターのグループ内役割は最大${GROUP_ROLE_MAX_TAGS}個まで選べます。`,
+      );
+    }
+
+    const { error: memberUpdateError } = await supabase
+      .from("group_chat_members")
+      .update({
+        group_role_tags: groupRoleTags,
+      })
+      .eq("thread_id", threadId)
+      .eq("user_id", user.id)
+      .eq("character_id", member.character_id);
+
+    if (memberUpdateError) {
+      redirectWithError(threadId, "グループ内役割の保存に失敗しました。");
+    }
   }
 
   const { error: updateError } = await supabase
