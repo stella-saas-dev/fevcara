@@ -558,20 +558,25 @@ export default async function CharacterDetailPage({
             />
           </DetailSection>
 
-          <section className="rounded-[2rem] border border-red-400/25 bg-red-400/10 p-5 shadow-2xl shadow-black/30">
-            <p className="text-sm font-black text-red-100">Danger Zone</p>
-            <h2 className="mt-2 text-xl font-black text-[#F4F1EA]">
+          <section className="rounded-[2rem] border border-red-400/40 bg-[#3B0A0A] p-5 shadow-2xl shadow-red-950/30">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-red-300/40 bg-red-500/20 px-3 py-1 text-[11px] font-black tracking-[0.18em] text-red-100">
+                DANGER ZONE
+              </span>
+            </div>
+
+            <h2 className="mt-4 text-xl font-black text-white">
               このキャラクターを削除する
             </h2>
 
-            <p className="mt-3 text-sm leading-7 text-red-100/90">
+            <p className="mt-3 text-sm font-semibold leading-7 text-red-50">
               この操作は取り消せません。キャラクター設定、大切な日、
               このキャラクターとの1対1チャット履歴、長期メモが削除されます。
             </p>
 
             {isActiveFreeCharacter ? (
-              <div className="mt-4 rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 p-4">
-                <p className="text-xs font-bold leading-6 text-[#FDE68A]">
+              <div className="mt-4 rounded-2xl border border-[#FACC15]/45 bg-[#422006] p-4">
+                <p className="text-xs font-bold leading-6 text-[#FEF3C7]">
                   Freeで利用中のキャラクターを削除すると、
                   Free中に使うキャラクターの選択状態も解除されます。
                 </p>
@@ -581,7 +586,7 @@ export default async function CharacterDetailPage({
             <form action={deleteCharacter} className="mt-5 space-y-4">
               <input type="hidden" name="characterId" value={character.id} />
 
-              <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-[#0B1020]/45 p-4">
+              <label className="flex items-start gap-3 rounded-2xl border border-red-200/25 bg-[#111827] p-4 shadow-inner shadow-black/20">
                 <input
                   type="checkbox"
                   name="confirmDelete"
@@ -589,14 +594,14 @@ export default async function CharacterDetailPage({
                   required
                   className="mt-1 h-4 w-4 shrink-0 accent-red-400"
                 />
-                <span className="text-xs leading-6 text-[#D8DEE9]">
+                <span className="text-sm font-semibold leading-6 text-[#F8FAFC]">
                   削除すると、このキャラクターと関連するチャット履歴が消えることを理解しました。
                 </span>
               </label>
 
               <button
                 type="submit"
-                className="w-full rounded-2xl border border-red-300/30 bg-red-400/15 px-5 py-4 text-sm font-black text-red-100 transition hover:bg-red-400/25"
+                className="w-full rounded-2xl border border-red-200/35 bg-red-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-red-950/25 transition hover:bg-red-400"
               >
                 このキャラクターを削除する
               </button>

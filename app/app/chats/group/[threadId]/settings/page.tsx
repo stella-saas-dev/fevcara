@@ -377,35 +377,41 @@ export default async function GroupSettingsPage({
           </button>
         </form>
 
-        <section className="mt-5 rounded-[2rem] border border-red-300/30 bg-red-500/10 p-5 shadow-2xl shadow-black/20">
-          <p className="text-xs font-black tracking-[0.2em] text-red-300">
-            DANGER ZONE
-          </p>
-          <h2 className="mt-2 text-xl font-black text-white">
+        <section className="mt-5 rounded-[2rem] border border-red-400/40 bg-[#3B0A0A] p-5 shadow-2xl shadow-red-950/30">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-red-300/40 bg-red-500/20 px-3 py-1 text-[11px] font-black tracking-[0.18em] text-red-100">
+              DANGER ZONE
+            </span>
+          </div>
+
+          <h2 className="mt-4 text-xl font-black text-white">
             グループチャットを削除する
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#D8DEE9]">
+          <p className="mt-3 text-sm font-semibold leading-7 text-red-50">
             このグループチャット、参加メンバー、会話履歴、通知を削除します。
             削除後は元に戻せません。
           </p>
 
-          <form action={deleteGroupChat} className="mt-4 rounded-3xl border border-red-300/20 bg-black/10 p-4">
+          <form
+            action={deleteGroupChat}
+            className="mt-5 rounded-3xl border border-red-200/25 bg-[#111827] p-4 shadow-inner shadow-black/20"
+          >
             <input type="hidden" name="threadId" value={thread.id} />
 
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
                 name="confirmDelete"
-                className="mt-1 shrink-0 accent-red-400"
+                className="mt-1 h-4 w-4 shrink-0 accent-red-400"
               />
-              <span className="text-sm leading-6 text-[#F8FAFC]">
+              <span className="text-sm font-semibold leading-6 text-[#F8FAFC]">
                 このグループチャットを削除することを確認しました。
               </span>
             </label>
 
             <button
               type="submit"
-              className="mt-4 w-full rounded-2xl border border-red-300/30 bg-red-500/20 px-5 py-4 text-sm font-black text-red-100 transition hover:bg-red-500/30"
+              className="mt-4 w-full rounded-2xl border border-red-200/35 bg-red-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-red-950/25 transition hover:bg-red-400"
             >
               グループチャットを削除する
             </button>
