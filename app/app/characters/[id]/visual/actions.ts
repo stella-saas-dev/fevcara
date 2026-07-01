@@ -85,6 +85,7 @@ export async function generateCharacterVisual(formData: FormData) {
   const requestedQuality = getText(formData, "imageQuality");
   const requestedFraming = getText(formData, "imageFraming");
   const backgroundPrompt = getText(formData, "backgroundPrompt");
+  const characterPosePrompt = getText(formData, "characterPosePrompt");
 
   if (!characterId) {
     redirect("/app/characters");
@@ -94,6 +95,13 @@ export async function generateCharacterVisual(formData: FormData) {
     redirectWithError(
       characterId,
       "背景・シーン設定は500文字以内で入力してください。",
+    );
+  }
+
+  if (characterPosePrompt.length > 300) {
+    redirectWithError(
+      characterId,
+      "キャラクターのポーズは300文字以内で入力してください。",
     );
   }
 
@@ -232,6 +240,7 @@ export async function generateCharacterVisual(formData: FormData) {
       imageFraming,
       creditCost,
       backgroundPrompt,
+      characterPosePrompt,
     });
   } catch (error) {
     console.error("Character visual generation failed:", error);

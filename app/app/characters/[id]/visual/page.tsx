@@ -72,7 +72,7 @@ function getPreviewClass(slug: string) {
   }
 
   if (slug === "shonen_manga") {
-    return "bg-[radial-gradient(circle_at_35%_32%,_#FFFFFF_0_8%,_transparent_9%),radial-gradient(circle_at_65%_32%,_#F97316_0_8%,_transparent_9%),linear-gradient(135deg,_#111827,_#DC2626)]";
+    return "bg-[radial-gradient(circle_at_35%_32%,_#FFFFFF_0_8%,_transparent_9%),radial-gradient(circle_at_65%_32%,_#93C5FD_0_8%,_transparent_9%),linear-gradient(135deg,_#38BDF8,_#6366F1)]";
   }
 
   if (slug === "light_novel") {
@@ -215,17 +215,8 @@ export default async function CharacterVisualPage({
 
   const { count: scopedImageCount } = await imageCountQuery;
 
-    const characterName = getCharacterName(character);
+  const characterName = getCharacterName(character);
   const savedImageCount = scopedImageCount ?? 0;
-
-  const saveLimitTitle =
-    planConfig.imageSaveLimitScope === "character" ? "キャラ画像" : "保存画像";
-
-  const saveLimitHelperText =
-    planConfig.imageSaveLimitScope === "character"
-      ? `${planConfig.label}はこのキャラクターごとに最大${planConfig.imageSaveLimit}枚まで保存できます。`
-      : `${planConfig.label}はアカウント全体で最大${planConfig.imageSaveLimit}枚まで保存できます。`;
-
   const saveLimitPercent = Math.min(
     100,
     Math.round((savedImageCount / planConfig.imageSaveLimit) * 100),
@@ -302,6 +293,21 @@ export default async function CharacterVisualPage({
               絵柄・背景・構図を選んで画像を生成し、背景用画像とアイコン用画像を決めます。
               ここで選んだ姿が、ホーム・詳細・チャット画面でキャラクターの存在感になります。
             </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Link
+                href={`/app/characters/${character.id}/edit`}
+                className="rounded-2xl border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-3 text-center text-xs font-black text-[#FDE68A] transition hover:bg-[#FACC15]/15"
+              >
+                プロフィール設定を修正する
+              </Link>
+              <Link
+                href={`/app/characters/${character.id}`}
+                className="rounded-2xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 px-4 py-3 text-center text-xs font-black text-[#BAE6FD] transition hover:bg-[#7DD3FC]/15"
+              >
+                キャラクター詳細へ戻る
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -326,21 +332,9 @@ export default async function CharacterVisualPage({
               <h2 className="mt-2 text-2xl font-black">
                 残り {balance} クレジット
               </h2>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-3 py-1 text-xs font-black text-[#FDE68A]">
-                  {planConfig.label}
-                </span>
-
-                <span className="text-sm font-bold text-[#D6DCE8]">
-                  {saveLimitTitle}{" "}
-                  <span className="font-black text-[#F4F1EA]">
-                    {savedImageCount}/{planConfig.imageSaveLimit}枚
-                  </span>
-                </span>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-[#7D8AA3]">
-                {saveLimitHelperText}
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                {planConfig.label}プラン / {planConfig.imageSaveLimitLabel} {savedImageCount}
+                / {planConfig.imageSaveLimit} 枚
               </p>
             </div>
 
@@ -535,10 +529,40 @@ export default async function CharacterVisualPage({
             </div>
           </div>
 
+          <div className="mt-5 rounded-3xl border border-[#C4B5FD]/20 bg-[#C4B5FD]/10 p-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#C4B5FD] text-xs font-black text-[#07111F]">
+                3
+              </span>
+              <div>
+                <p className="text-sm font-black text-[#DDD6FE]">
+                  キャラクターのポーズ
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#A7B0C0]">
+                  立ち方、手の位置、表情の方向性などを指定できます。
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-4 block">
+              <textarea
+                name="characterPosePrompt"
+                rows={4}
+                maxLength={300}
+                placeholder="例：片手を胸元に添えて、少し首をかしげながら穏やかに微笑む。全身が見える自然な立ち姿で、手足やシルエットが崩れないように。"
+                className="w-full resize-none rounded-2xl border border-white/10 bg-[#0B1020]/70 px-4 py-3 text-sm leading-6 text-[#F4F1EA] outline-none placeholder:text-[#6B7280] focus:border-[#C4B5FD]/60"
+              />
+            </label>
+
+            <div className="mt-3 rounded-2xl border border-white/10 bg-black/15 p-3 text-[11px] leading-5 text-[#A7B0C0]">
+              おすすめ：正面立ち、少し振り返る、手を振る、胸元に手を添える、腰に手を当てる、控えめなピース、静かに座る
+            </div>
+          </div>
+
           <div className="mt-5 rounded-3xl border border-white/10 bg-black/15 p-4">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-[#FACC15] text-xs font-black text-[#07111F]">
-                3
+                4
               </span>
               <div>
                 <p className="text-sm font-black text-[#FDE68A]">

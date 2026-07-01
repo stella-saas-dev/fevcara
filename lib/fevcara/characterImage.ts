@@ -48,6 +48,7 @@ type GenerateAndStoreCharacterImageArgs = {
   imageFraming: CharacterImageFraming;
   creditCost: number;
   backgroundPrompt?: string;
+  characterPosePrompt?: string;
 };
 
 function cleanPromptValue(value: string | null | undefined) {
@@ -149,18 +150,53 @@ Background rules:
 `.trim();
 }
 
+
+function getPoseInstruction(characterPosePrompt?: string) {
+  const safeCharacterPosePrompt = cleanLongPromptValue(characterPosePrompt);
+
+  if (safeCharacterPosePrompt) {
+    return `
+Character pose / body direction:
+Use the following pose direction for the character:
+${safeCharacterPosePrompt}
+
+Pose rules:
+- Keep the pose natural and readable.
+- Do not change the character's core design, outfit, hair, eye color, or personality.
+- Keep the face, hair, outfit, hands, feet, and silhouette visible unless upper-body framing makes feet irrelevant.
+- Avoid broken anatomy, extra fingers, missing fingers, twisted limbs, or impossible joints.
+- The pose should support the character's personality and role.
+- Do not make the pose sexualized, violent, or copied from a specific copyrighted work.
+`.trim();
+  }
+
+  return `
+Character pose / body direction:
+Use a simple natural pose that fits the character's personality.
+
+Pose rules:
+- Full-body framing may use a relaxed standing pose, a light gesture, or a calm character-introduction pose.
+- Upper-body framing may use a gentle hand gesture, a natural shoulder angle, or a readable facial expression.
+- Keep the face, hair, outfit, hands, and silhouette clear.
+- Avoid broken anatomy, extra fingers, missing fingers, twisted limbs, or impossible joints.
+- Do not make the pose sexualized, violent, or copied from a specific copyrighted work.
+`.trim();
+}
+
 function buildCharacterImagePrompt({
   character,
   artStyle,
   imageQuality,
   imageFraming,
   backgroundPrompt,
+  characterPosePrompt,
 }: {
   character: CharacterForImageGeneration;
   artStyle: ArtStyleForImageGeneration;
   imageQuality: CharacterImageQuality;
   imageFraming: CharacterImageFraming;
   backgroundPrompt?: string;
+  characterPosePrompt?: string;
 }) {
   const characterName = getCharacterDisplayName(character);
 
@@ -181,6 +217,8 @@ Core rules:
 - Follow the selected composition rules exactly.
 
 ${getFramingPrompt(imageFraming)}
+
+${getPoseInstruction(characterPosePrompt)}
 
 ${getBackgroundInstruction(backgroundPrompt)}
 
@@ -236,6 +274,7 @@ export async function generateAndStoreCharacterImage({
   imageFraming,
   creditCost,
   backgroundPrompt,
+  characterPosePrompt,
 }: GenerateAndStoreCharacterImageArgs) {
   const prompt = buildCharacterImagePrompt({
     character,
@@ -243,6 +282,7 @@ export async function generateAndStoreCharacterImage({
     imageQuality,
     imageFraming,
     backgroundPrompt,
+    characterPosePrompt,
   });
 
   const imageId = randomUUID();
