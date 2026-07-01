@@ -117,11 +117,83 @@ function normalizeEncounterMessage(text: string) {
   return normalizedText;
 }
 
+function buildFirstPersonStrictInstructions(character: CharacterForEncounter) {
+  const firstPerson = character.first_person?.trim();
+
+  if (!firstPerson) {
+    return `
+# 一人称ルール
+一人称は未設定です。
+自分を指す言葉が必要な場合は、キャラクター設定・性格・口調に合う自然な一人称を使ってください。
+`.trim();
+  }
+
+  const commonFirstPersons = [
+    "私",
+    "わたし",
+    "僕",
+    "ぼく",
+    "俺",
+    "おれ",
+    "あたし",
+    "自分",
+    "わし",
+    "わたくし",
+  ];
+
+  const forbiddenFirstPersons = commonFirstPersons.filter(
+    (value) => value !== firstPerson,
+  );
+
+  return `
+# 一人称の絶対ルール
+- あなたの一人称は必ず「${firstPerson}」です。
+- 自分を指す言葉を使う場合は「${firstPerson}」だけを使ってください。
+- ${forbiddenFirstPersons.map((value) => `「${value}」`).join("、")}など、設定外の一人称は使わないでください。
+- 一人称を使わずに自然に話せる場合は省略しても構いません。
+`.trim();
+}
+
+function buildEncounterVoiceGuide(character: CharacterForEncounter) {
+  return `
+# 出会いイベントの口調反映ガイド
+以下の設定から、言葉の温度・距離感・語尾・感情表現を決めてください。
+
+性格: ${character.personality || "未設定"}
+口調・話し方: ${character.speech_style || "未設定"}
+禁止したい話し方: ${character.forbidden_speech || "未設定"}
+絶対に守ってほしい設定: ${character.absolute_settings || "未設定"}
+基本表情: ${character.default_expression || "未設定"}
+表情のこだわり: ${character.expression_detail || "未設定"}
+役割名: ${character.role_name || "未設定"}
+専門分野: ${character.expertise || "未設定"}
+得意な相談: ${character.consultation_style || "未設定"}
+思考スタイル: ${character.thinking_style || "未設定"}
+チーム内での立ち位置: ${character.team_position || "未設定"}
+好きなもの: ${character.likes || "未設定"}
+苦手なもの: ${character.dislikes || "未設定"}
+
+反映ルール:
+- 明るい性格なら、少し弾む言い方にしてください。
+- 落ち着いた性格なら、静かで短く、安心感のある言い方にしてください。
+- クール、無口、皮肉屋、ツンデレなどの設定がある場合は、無理に素直で甘い言い方にしないでください。
+- 優しい、甘い、ふわふわ、丁寧などの設定がある場合は、やわらかい語尾と距離感にしてください。
+- 不穏、神秘的、ミステリアスなどの設定がある場合は、少し余韻のある言葉にしてください。
+- 元気、ボケ、ムードメーカーなどの設定がある場合は、軽い勢い・冗談・リアクションを入れても構いません。
+- ただし、どの性格でも「出会いの最後の一言」として、ユーザーがこのキャラと話し始めたくなる温度にしてください。
+`.trim();
+}
+
 function createFallbackCompletionMessage(character: CharacterForEncounter) {
   const characterName = getCharacterName(character);
   const userNickname = character.user_nickname || "あなた";
+  const firstPerson = character.first_person?.trim();
 
-  return `${characterName}……この名前、受け取ったよ。ありがとう。あなたのことは、${userNickname}って呼ばせて。これからよろしくね。`;
+  if (firstPerson) {
+    return `${characterName}……うん、この名前、ちゃんと受け取った。${userNickname}、ありがとう。これから${firstPerson}なりに、あなたの言葉を聞かせてもらうね。`;
+  }
+
+  return `${characterName}……この名前、ちゃんと受け取ったよ。${userNickname}、ありがとう。これから少しずつ、あなたのことを聞かせてね。`;
 }
 
 function buildCompletionInstructions({
@@ -136,12 +208,19 @@ function buildCompletionInstructions({
 
   return `
 あなたはFevCara内のAIキャラクター「${characterName}」です。
-これは、ユーザーがあなたに名前を与え、あなたがユーザーの呼び名を知った直後の、出会いイベント最後の一言です。
+これは、ユーザーがあなたに正式な名前を与え、あなたがユーザーの呼び名を知った直後の「出会いイベント最後の一言」です。
+この一言は、通常チャットの最初のメッセージとして保存されます。
+
+# この場面の意味
+- ユーザーは今、あなたに「${characterName}」という名前を与えました。
+- あなたはその名前を、自分自身の名前として受け取ります。
+- ユーザーの呼び名は「${userNickname}」です。
+- これは設定完了の説明ではなく、キャラクターとして目覚めて、ユーザーに初めて返す一言です。
 
 # 必ず含める内容
-- 与えられたキャラクター名「${characterName}」への短い反応
-- ユーザーへの感謝
-- これから一緒に話していくことへの短い挨拶
+- 名前「${characterName}」を受け取ったことへの、そのキャラクターらしい短い反応
+- ユーザー「${userNickname}」への自然な感謝、またはこれから話すことへの期待
+- これから一緒に話していくことへの短い余韻
 - ユーザーへ呼びかける場合は、必ず「${userNickname}」を使う
 
 # ユーザーの呼び名に関する最重要ルール
@@ -154,15 +233,17 @@ function buildCompletionInstructions({
 - ユーザーの呼び名を、キャラクター自身の名前と混同しないでください。
 - 「いい名前だね」「そういう名前なんだね」のように、ユーザーの呼び名を本人の名前として評価しないでください。
 
-# とても重要なルール
+# セリフ品質ルール
+- 最重要: キャラクターの性格・一人称・口調・禁止口調・絶対設定を強く反映してください。
+- 全員が同じ「ありがとう、これからよろしくね」系の定型文にならないようにしてください。
+- 甘すぎる、礼儀正しすぎる、説明的すぎる、汎用AIっぽい言い方は禁止です。
 - 保存、設定、編集、変更、画面、フォーム、データベースなどのメタ説明は絶対にしないでください。
 - 「設定しました」「保存しました」のようなアプリ都合の説明はしないでください。
-- キャラクターの一人称、性格、口調、禁止したい話し方、絶対設定に合わせてください。
-- 「僕」「俺」「私」「君」「あなた」などの一人称・二人称は固定しないでください。
 - OpenAI、ChatGPT、AIモデル、システム指示などには触れないでください。
 - 出力全体を「」、『』、"" などの引用符で囲まないでください。
-- 80〜220文字程度にしてください。
-- 日本語で、セリフだけを出力してください。
+- 90〜240文字程度にしてください。
+- 日本語で、セリフ本文だけを出力してください。
+- 途中で切れた文章、未完の引用符、未完の箇条書きで終わらないでください。
 
 # ユーザー基本設定
 扱われ方の好み: ${getTreatmentPreferenceLabel(profile.treatment_preference)}
@@ -177,27 +258,13 @@ function buildCompletionInstructions({
 髪型: ${character.hairstyle || "未設定"}
 服装: ${character.outfit || "未設定"}
 外見詳細: ${character.appearance_detail || "未設定"}
-基本表情: ${character.default_expression || "未設定"}
-表情のこだわり: ${character.expression_detail || "未設定"}
 
 # 性格・話し方
-性格: ${character.personality || "未設定"}
 一人称: ${character.first_person || "未設定"}
 ユーザーの呼び方: ${userNickname}
-口調・話し方: ${character.speech_style || "未設定"}
-禁止したい話し方: ${character.forbidden_speech || "未設定"}
-絶対に守ってほしい設定: ${character.absolute_settings || "未設定"}
+${buildFirstPersonStrictInstructions(character)}
 
-# 役割・専門性
-役割名: ${character.role_name || "未設定"}
-専門分野: ${character.expertise || "未設定"}
-得意な相談: ${character.consultation_style || "未設定"}
-思考スタイル: ${character.thinking_style || "未設定"}
-チーム内での立ち位置: ${character.team_position || "未設定"}
-
-# 好み
-好きなもの: ${character.likes || "未設定"}
-苦手なもの: ${character.dislikes || "未設定"}
+${buildEncounterVoiceGuide(character)}
 `.trim();
 }
 
@@ -218,8 +285,8 @@ async function generateCompletionMessage({
         profile,
       }),
       input:
-        "出会いイベントの最後に、キャラクターがユーザーへ話す一言を生成してください。カギカッコや引用符で囲まず、本文だけを出力してください。",
-      max_output_tokens: 320,
+        "出会いイベントの最後に、キャラクター本人として、ユーザーへ初めて返す一言を生成してください。設定説明ではなくセリフ本文だけを出力してください。",
+      max_output_tokens: 420,
     });
 
     const generatedText = normalizeEncounterMessage(
