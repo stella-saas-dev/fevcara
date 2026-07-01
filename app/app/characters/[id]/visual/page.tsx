@@ -13,6 +13,7 @@ import {
   selectCharacterVisual,
   startEncounterFromVisual,
 } from "./actions";
+import { GenerateImageSubmitButton } from "./GenerateImageSubmitButton";
 
 type VisualPageProps = {
   params: Promise<{
@@ -657,13 +658,7 @@ export default async function CharacterVisualPage({
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={balance <= 0}
-            className="mt-5 w-full rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
-          >
-            画像を生成する
-          </button>
+          <GenerateImageSubmitButton disabled={balance <= 0} />
 
           {balance <= 0 ? (
             <p className="mt-3 text-center text-xs font-bold leading-5 text-[#FDE68A]">
