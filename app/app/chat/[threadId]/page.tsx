@@ -7,7 +7,8 @@ import {
   getGroupInitial,
 } from "@/lib/fevcara/groupIcon";
 import { MESSAGE_LIMIT_REACHED_CODE, getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
-import { sendUserMessage } from "./actions";
+import { getPendingCelebrationEventForThread } from "@/lib/fevcara/celebrationEvents";
+import { completeCelebrationEvent, sendUserMessage } from "./actions";
 import { ScrollToLatestMessage } from "./ScrollToLatestMessage";
 import { ChatSubmitButton } from "./ChatSubmitButton";
 
@@ -18,6 +19,7 @@ type ChatPageProps = {
   searchParams: Promise<{
     error?: string;
     limit?: string;
+    celebration?: string;
   }>;
 };
 
@@ -375,6 +377,16 @@ export default async function ChatPage({
     groupCharacters.map((groupCharacter) => [groupCharacter.id, groupCharacter]),
   );
 
+  const pendingCelebrationEvent =
+    !isGroupChat && query.celebration
+      ? await getPendingCelebrationEventForThread({
+          supabase,
+          userId: user.id,
+          threadId: thread.id,
+          eventLogId: query.celebration,
+        })
+      : null;
+
   const pageBackgroundClass = isGroupChat
     ? "bg-[#F8FAFC]"
     : characterBackgroundUrl
@@ -681,6 +693,78 @@ export default async function ChatPage({
             </div>
           </div>
         </header>
+
+        {pendingCelebrationEvent ? (
+          <section className="mt-5 overflow-hidden rounded-[2rem] border border-[#FDE68A]/70 bg-white text-[#17212F] shadow-2xl shadow-[#FDE68A]/20">
+            <div className="relative min-h-[26rem] overflow-hidden bg-[radial-gradient(circle_at_50%_12%,rgba(254,243,199,0.95),transparent_34%),radial-gradient(circle_at_50%_48%,rgba(224,242,254,0.88),transparent_38%),linear-gradient(180deg,#FFFFFF_0%,#FFF7ED_58%,#EFF6FF_100%)] p-5">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(250,204,21,0.20),transparent_18%),radial-gradient(circle_at_82%_18%,rgba(125,211,252,0.22),transparent_22%),radial-gradient(circle_at_50%_78%,rgba(190,242,100,0.16),transparent_26%)]" />
+              <div className="pointer-events-none absolute left-1/2 top-10 h-44 w-44 -translate-x-1/2 rounded-full bg-white/80 blur-2xl" />
+
+              <div className="relative z-10 text-center">
+                <p className="text-xs font-black tracking-[0.24em] text-[#FACC15]">
+                  SPECIAL DAY
+                </p>
+                <h2 className="mt-2 text-2xl font-black text-[#0F172A]">
+                  {pendingCelebrationEvent.celebrationTitle}
+                </h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">
+                  {pendingCelebrationEvent.character.name}が、あなたを待っています。
+                </p>
+              </div>
+
+              <div className="relative z-10 mt-6 flex justify-center">
+                <div className="relative">
+                  <div className="absolute inset-x-4 bottom-0 h-20 rounded-full bg-[#0F172A]/15 blur-2xl" />
+
+                  {pendingCelebrationEvent.character.imageUrl ? (
+                    <img
+                      src={pendingCelebrationEvent.character.imageUrl}
+                      alt=""
+                      className="relative max-h-72 w-auto max-w-full object-contain drop-shadow-2xl"
+                    />
+                  ) : pendingCelebrationEvent.character.iconImageUrl ? (
+                    <img
+                      src={pendingCelebrationEvent.character.iconImageUrl}
+                      alt=""
+                      className="relative h-40 w-40 rounded-[2rem] object-cover shadow-2xl shadow-black/20"
+                    />
+                  ) : (
+                    <div className="relative flex h-40 w-40 items-center justify-center rounded-[2rem] border border-[#FACC15]/35 bg-white/70 text-5xl font-black text-[#0F172A] shadow-2xl shadow-black/10">
+                      {pendingCelebrationEvent.character.name.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-5 rounded-[2rem] border border-white/80 bg-white/80 p-4 shadow-xl shadow-black/10 backdrop-blur">
+                <p className="text-sm font-bold leading-7 text-[#334155]">
+                  今日は「{pendingCelebrationEvent.celebrationTitle}」の日だね。
+                  覚えてたよ。おめでとう。
+                </p>
+              </div>
+
+              <form action={completeCelebrationEvent} className="relative z-10 mt-5">
+                <input
+                  type="hidden"
+                  name="threadId"
+                  value={thread.id}
+                />
+                <input
+                  type="hidden"
+                  name="celebrationEventLogId"
+                  value={pendingCelebrationEvent.id}
+                />
+
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-4 text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition hover:scale-[1.01] hover:opacity-95"
+                >
+                  メッセージを受け取る
+                </button>
+              </form>
+            </div>
+          </section>
+        ) : null}
 
         {showMemoryDebug ? (
           <details className="mt-4 rounded-[1.5rem] border border-[#7DD3FC]/20 bg-[#7DD3FC]/12 p-4 shadow-lg shadow-[#7DD3FC]/5 backdrop-blur">
