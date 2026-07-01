@@ -185,6 +185,41 @@ async function countUsageEvents({
   return count ?? 0;
 }
 
+
+async function countUserChatMessages({
+  supabase,
+  userId,
+  start,
+  end,
+}: {
+  supabase: any;
+  userId: string;
+  start?: string;
+  end?: string;
+}) {
+  let query = supabase
+    .from("chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("sender_type", "user");
+
+  if (start) {
+    query = query.gte("created_at", start);
+  }
+
+  if (end) {
+    query = query.lt("created_at", end);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
 async function getPurchasedMessageCreditStatus({
   supabase,
   userId,
@@ -273,13 +308,28 @@ export async function getMessageUsageStatus({
     bucket: "purchased",
   });
 
+  const legacyUserMessagesInMonth = await countUserChatMessages({
+    supabase,
+    userId,
+    start: monthRange.start,
+    end: monthRange.end,
+  });
+
   const fallbackMonthlyUsed = Math.max(
     totalUsedInMonth - trialUsedInMonth - purchasedUsedInMonth,
     0,
   );
 
-  const monthlyUsed =
+  const usageEventMonthlyUsed =
     monthlyBucketUsed > 0 ? monthlyBucketUsed : fallbackMonthlyUsed;
+
+  const shouldUseLegacyFallback =
+    planTier !== "free" || totalUsedInMonth === 0;
+
+  const monthlyUsed = Math.max(
+    usageEventMonthlyUsed,
+    shouldUseLegacyFallback ? legacyUserMessagesInMonth : 0,
+  );
 
   const monthlyRemaining = Math.max(monthlyLimit - monthlyUsed, 0);
 
@@ -411,6 +461,7 @@ export async function recordMessageUsage({
       month_start: status.monthStart,
       month_end: status.monthEnd,
       reset_basis: "Asia/Tokyo calendar month",
+      usage_count_basis: "usage_events_with_chat_messages_fallback",
     },
   });
 
