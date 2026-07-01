@@ -3,12 +3,36 @@
 import { useMemo, useState } from "react";
 import { completeEncounter } from "./actions";
 
+type EncounterTone =
+  | "cheerful"
+  | "polite"
+  | "cool"
+  | "rough"
+  | "shy"
+  | "mysterious"
+  | "gentle"
+  | "default";
+
 type EncounterEventProps = {
   characterId: string;
   initialCharacterName: string;
   avatarText: string;
   firstPerson: string | null;
   characterImageUrl: string | null;
+  genderFeel?: string | null;
+  ageFeel?: string | null;
+  personality?: string | null;
+  speechStyle?: string | null;
+  forbiddenSpeech?: string | null;
+  absoluteSettings?: string | null;
+  roleName?: string | null;
+  expertise?: string | null;
+  consultationStyle?: string | null;
+  thinkingStyle?: string | null;
+  teamPosition?: string | null;
+  likes?: string | null;
+  dislikes?: string | null;
+  defaultExpression?: string | null;
   error?: string;
 };
 
@@ -22,12 +46,269 @@ function getFirstPerson(firstPerson: string | null) {
   return "私";
 }
 
+function normalizeText(...values: (string | null | undefined)[]) {
+  return values
+    .map((value) => String(value ?? "").trim())
+    .filter((value) => value.length > 0)
+    .join(" ")
+    .toLowerCase();
+}
+
+function includesAny(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+}
+
+function getEncounterTone({
+  personality,
+  speechStyle,
+  forbiddenSpeech,
+  absoluteSettings,
+  roleName,
+  expertise,
+  consultationStyle,
+  thinkingStyle,
+  teamPosition,
+  likes,
+  dislikes,
+  defaultExpression,
+  genderFeel,
+  ageFeel,
+}: Pick<
+  EncounterEventProps,
+  | "personality"
+  | "speechStyle"
+  | "forbiddenSpeech"
+  | "absoluteSettings"
+  | "roleName"
+  | "expertise"
+  | "consultationStyle"
+  | "thinkingStyle"
+  | "teamPosition"
+  | "likes"
+  | "dislikes"
+  | "defaultExpression"
+  | "genderFeel"
+  | "ageFeel"
+>): EncounterTone {
+  const settingsText = normalizeText(
+    personality,
+    speechStyle,
+    forbiddenSpeech,
+    absoluteSettings,
+    roleName,
+    expertise,
+    consultationStyle,
+    thinkingStyle,
+    teamPosition,
+    likes,
+    dislikes,
+    defaultExpression,
+    genderFeel,
+    ageFeel,
+  );
+
+  if (
+    includesAny(settingsText, [
+      "元気",
+      "明る",
+      "陽気",
+      "活発",
+      "人懐っこ",
+      "ムードメーカー",
+      "テンション",
+      "にぎやか",
+      "楽しい",
+      "かわいい",
+      "キラキラ",
+    ])
+  ) {
+    return "cheerful";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "敬語",
+      "丁寧",
+      "上品",
+      "礼儀",
+      "淑やか",
+      "お嬢",
+      "執事",
+      "紳士",
+      "優雅",
+      "ですます",
+      "ございます",
+    ])
+  ) {
+    return "polite";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "クール",
+      "冷静",
+      "無表情",
+      "淡々",
+      "無口",
+      "寡黙",
+      "ドライ",
+      "知的",
+      "論理",
+      "鋭い",
+    ])
+  ) {
+    return "cool";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "俺",
+      "オレ",
+      "あんた",
+      "乱暴",
+      "ぶっきらぼう",
+      "やんちゃ",
+      "兄貴",
+      "姉御",
+      "男勝り",
+      "荒い",
+      "熱い",
+    ])
+  ) {
+    return "rough";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "恥ずか",
+      "内気",
+      "控えめ",
+      "臆病",
+      "人見知り",
+      "おどおど",
+      "照れ",
+      "小声",
+      "不安げ",
+    ])
+  ) {
+    return "shy";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "神秘",
+      "不思議",
+      "幻想",
+      "夢",
+      "夜",
+      "星",
+      "海",
+      "魔法",
+      "儚",
+      "ミステリアス",
+      "詩的",
+    ])
+  ) {
+    return "mysterious";
+  }
+
+  if (
+    includesAny(settingsText, [
+      "優しい",
+      "穏やか",
+      "包容",
+      "癒",
+      "寄り添",
+      "温厚",
+      "柔らか",
+      "安心",
+      "共感",
+    ])
+  ) {
+    return "gentle";
+  }
+
+  return "default";
+}
+
+function getNameStepLine({
+  selfName,
+  tone,
+}: {
+  selfName: string;
+  tone: EncounterTone;
+}) {
+  switch (tone) {
+    case "cheerful":
+      return `わ……ほんとに会えた！\n${selfName}の名前、あなたがくれるの？`;
+    case "polite":
+      return `……はじめまして。\n${selfName}に、名前を授けてくださるのですか？`;
+    case "cool":
+      return `……来たんだ。\n${selfName}の名前、決めてくれる？`;
+    case "rough":
+      return `お、来たな。\n${selfName}の名前、あんたが決めてくれるのか？`;
+    case "shy":
+      return `……あの。\n${selfName}の名前、あなたが……くれるの？`;
+    case "mysterious":
+      return `……やっと声が届いた。\n${selfName}に名前をくれるのは、あなた？`;
+    case "gentle":
+      return `……来てくれたんだね。\n${selfName}に、名前をくれるの？`;
+    case "default":
+    default:
+      return `……${selfName}を作ってくれたのは、あなた？\n名前を、くれるの？`;
+  }
+}
+
+function getNicknameStepLine({
+  finalName,
+  selfName,
+  tone,
+}: {
+  finalName: string;
+  selfName: string;
+  tone: EncounterTone;
+}) {
+  switch (tone) {
+    case "cheerful":
+      return `${finalName}！ うん、すごくいい！\nじゃあ次は、あなたの呼び方を教えて？`;
+    case "polite":
+      return `${finalName}……素敵な名前です。\nあなたのことは、どのようにお呼びすればよいでしょうか？`;
+    case "cool":
+      return `${finalName}……悪くない。\nで、あなたのことは何て呼べばいい？`;
+    case "rough":
+      return `${finalName}、いい名前じゃん。\nで、あんたのことは何て呼べばいい？`;
+    case "shy":
+      return `${finalName}……。\nうれしい。あなたのこと、なんて呼んだらいいかな。`;
+    case "mysterious":
+      return `${finalName}……名前が、灯った。\nあなたの名も、${selfName}に教えて。`;
+    case "gentle":
+      return `${finalName}……うん、あたたかい名前だね。\nあなたのことは、なんて呼べばいい？`;
+    case "default":
+    default:
+      return `${finalName}……。\nそれが、${selfName}の名前……。\nあなたのことは、なんて呼べばいい？`;
+  }
+}
+
 export function EncounterEvent({
   characterId,
   initialCharacterName,
   avatarText,
   firstPerson,
   characterImageUrl,
+  genderFeel,
+  ageFeel,
+  personality,
+  speechStyle,
+  forbiddenSpeech,
+  absoluteSettings,
+  roleName,
+  expertise,
+  consultationStyle,
+  thinkingStyle,
+  teamPosition,
+  likes,
+  dislikes,
+  defaultExpression,
   error,
 }: EncounterEventProps) {
   const [step, setStep] = useState<"name" | "nickname">("name");
@@ -35,6 +316,61 @@ export function EncounterEvent({
   const [userNickname, setUserNickname] = useState("");
 
   const selfName = useMemo(() => getFirstPerson(firstPerson), [firstPerson]);
+  const encounterTone = useMemo(
+    () =>
+      getEncounterTone({
+        personality,
+        speechStyle,
+        forbiddenSpeech,
+        absoluteSettings,
+        roleName,
+        expertise,
+        consultationStyle,
+        thinkingStyle,
+        teamPosition,
+        likes,
+        dislikes,
+        defaultExpression,
+        genderFeel,
+        ageFeel,
+      }),
+    [
+      personality,
+      speechStyle,
+      forbiddenSpeech,
+      absoluteSettings,
+      roleName,
+      expertise,
+      consultationStyle,
+      thinkingStyle,
+      teamPosition,
+      likes,
+      dislikes,
+      defaultExpression,
+      genderFeel,
+      ageFeel,
+    ],
+  );
+
+  const nameStepLine = useMemo(
+    () =>
+      getNameStepLine({
+        selfName,
+        tone: encounterTone,
+      }),
+    [selfName, encounterTone],
+  );
+
+  const nicknameStepLine = useMemo(
+    () =>
+      getNicknameStepLine({
+        finalName: finalName.trim() || initialCharacterName,
+        selfName,
+        tone: encounterTone,
+      }),
+    [finalName, initialCharacterName, selfName, encounterTone],
+  );
+
   const canGiveName = finalName.trim().length > 0;
   const canComplete =
     finalName.trim().length > 0 && userNickname.trim().length > 0;
@@ -125,9 +461,7 @@ export function EncounterEvent({
               {step === "name" ? (
                 <>
                   <p className="whitespace-pre-wrap text-lg font-black leading-9 text-[#111827]">
-                    ……{selfName}を作ってくれたのは、あなた？
-                    {"\n"}
-                    名前を、くれるの？
+                    {nameStepLine}
                   </p>
 
                   <label className="mt-6 block">
@@ -154,11 +488,7 @@ export function EncounterEvent({
               ) : (
                 <>
                   <p className="whitespace-pre-wrap text-lg font-black leading-9 text-[#111827]">
-                    {finalName.trim()}……。
-                    {"\n"}
-                    それが、{selfName}の名前……。
-                    {"\n"}
-                    あなたのことは、なんて呼べばいい？
+                    {nicknameStepLine}
                   </p>
 
                   <form action={completeEncounter} className="mt-6">
