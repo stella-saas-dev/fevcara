@@ -1289,3 +1289,48 @@ on public.autonomous_chat_usage
 for insert
 to authenticated
 with check (auth.uid() = user_id);
+
+
+
+
+
+alter table public.group_chat_members
+add column if not exists group_role_tags text[] not null default '{}';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'group_chat_members_group_role_tags_length_check'
+  ) then
+    alter table public.group_chat_members
+    add constraint group_chat_members_group_role_tags_length_check
+    check (cardinality(group_role_tags) <= 3);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'group_chat_members_group_role_tags_values_check'
+  ) then
+    alter table public.group_chat_members
+    add constraint group_chat_members_group_role_tags_values_check
+    check (
+      group_role_tags <@ array[
+        'empathy',
+        'expander',
+        'mood_maker',
+        'organizer',
+        'questioner',
+        'boke',
+        'tsukkomi',
+        'mediator',
+        'realist'
+      ]::text[]
+    );
+  end if;
+end $$;

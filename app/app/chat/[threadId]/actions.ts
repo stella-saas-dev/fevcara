@@ -142,6 +142,9 @@ type GeneratedSummary = {
 };
 
 const FREE_TRIAL_BOOST_HOURS = 72;
+const SINGLE_CHAT_MAX_OUTPUT_CHARACTERS = 650;
+const GROUP_CHAT_CONSULTATION_MAX_OUTPUT_CHARACTERS = 520;
+const GROUP_CHAT_CASUAL_MAX_OUTPUT_CHARACTERS = 180;
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
@@ -898,6 +901,9 @@ ${userProfileNoteInstructions}
 
 # 返答ルール
 - 日本語で返答してください。
+- 返答は必ず${SINGLE_CHAT_MAX_OUTPUT_CHARACTERS}文字以内に収めてください。
+- 途中で切れた文章、未完の引用符、未完の箇条書きで終わらないでください。
+- 長くなりそうな場合は、要点を絞って最後まで言い切ってください。
 - キャラクターの口調を守ってください。
 - 一人称は設定されたものだけを使ってください。設定外の一人称に言い換えないでください。
 - 返答本文の冒頭に自分の名前や名前ラベルを付けないでください。
@@ -1671,6 +1677,9 @@ ${directCharacterInteractionHint}
 
 # グループチャット返答ルール
 - 日本語で返答してください。
+- 雑談では${GROUP_CHAT_CASUAL_MAX_OUTPUT_CHARACTERS}文字以内、相談では${GROUP_CHAT_CONSULTATION_MAX_OUTPUT_CHARACTERS}文字以内を目安にしてください。
+- 途中で切れた文章、未完の引用符、未完の箇条書きで終わらないでください。
+- 長くなりそうな場合は、要点を絞って最後まで言い切ってください。
 - 「${speakerName}」としての口調を守ってください。
 - 一人称は設定されたものだけを使ってください。設定外の一人称に言い換えないでください。
 - 返答は「${speakerName}自身の1発言」だけにしてください。
@@ -2414,7 +2423,9 @@ export async function sendUserMessage(formData: FormData) {
           speakerName: getCharacterName(speaker),
           memberNames: groupMemberNames,
           maxSentences: isCasualTurn ? 2 : 5,
-          maxCharacters: isCasualTurn ? 180 : 460,
+          maxCharacters: isCasualTurn
+            ? GROUP_CHAT_CASUAL_MAX_OUTPUT_CHARACTERS
+            : GROUP_CHAT_CONSULTATION_MAX_OUTPUT_CHARACTERS,
         });
 
         aiReply = ensureCharacterInteractionReply({
@@ -2607,12 +2618,14 @@ export async function sendUserMessage(formData: FormData) {
         profile.user_profile_note,
       ),
       input: buildConversationInput(recentMessages),
-      max_output_tokens: 900,
+      max_output_tokens: 760,
     });
 
     aiReply = sanitizeAiReplyContent({
       rawText: response.output_text || "",
       speakerName: getCharacterName(character),
+      maxSentences: 8,
+      maxCharacters: SINGLE_CHAT_MAX_OUTPUT_CHARACTERS,
     });
   } catch (error) {
     console.error("OpenAI response error:", error);

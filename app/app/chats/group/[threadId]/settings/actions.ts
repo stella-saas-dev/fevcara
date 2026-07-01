@@ -123,3 +123,94 @@ export async function updateGroupChatSettings(formData: FormData) {
 
   redirect(`/app/chats/group/${threadId}/settings?updated=1`);
 }
+
+
+export async function deleteGroupChat(formData: FormData) {
+  const threadId = getText(formData, "threadId");
+  const confirmDelete = formData.get("confirmDelete") === "on";
+
+  if (!threadId) {
+    redirect("/app/chats");
+  }
+
+  if (!confirmDelete) {
+    redirectWithError(
+      threadId,
+      "グループチャットを削除するには、確認チェックを入れてください。",
+    );
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: threadData, error: threadFetchError } = await supabase
+    .from("chat_threads")
+    .select("id, chat_type")
+    .eq("id", threadId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (threadFetchError || !threadData) {
+    redirectWithError(threadId, "削除するグループチャットの確認に失敗しました。");
+  }
+
+  const thread = threadData as { id: string; chat_type: string | null };
+
+  if (thread.chat_type !== "group") {
+    redirectWithError(threadId, "グループチャットだけ削除できます。");
+  }
+
+  const deleteTargets = [
+    supabase
+      .from("notifications")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("related_thread_id", threadId),
+    supabase
+      .from("chat_thread_summaries")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("thread_id", threadId),
+    supabase
+      .from("chat_messages")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("thread_id", threadId),
+    supabase
+      .from("group_chat_members")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("thread_id", threadId),
+  ];
+
+  const deleteResults = await Promise.all(deleteTargets);
+
+  const deleteError = deleteResults.find((result) => result.error)?.error;
+
+  if (deleteError) {
+    redirectWithError(threadId, "関連データの削除に失敗しました。");
+  }
+
+  const { error: threadDeleteError } = await supabase
+    .from("chat_threads")
+    .delete()
+    .eq("id", threadId)
+    .eq("user_id", user.id)
+    .eq("chat_type", "group");
+
+  if (threadDeleteError) {
+    redirectWithError(threadId, "グループチャットの削除に失敗しました。");
+  }
+
+  revalidatePath("/app/chats");
+  revalidatePath("/app");
+
+  redirect("/app/chats?deleted=group");
+}

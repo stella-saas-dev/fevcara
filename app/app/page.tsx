@@ -2,179 +2,96 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/app/_components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
-import { getMessageUsageStatus } from "@/lib/fevcara/messageUsage";
-import { logout } from "./actions";
+import {
+  getGroupIconClasses,
+  getGroupInitial,
+} from "@/lib/fevcara/groupIcon";
 
-type ProfileRow = {
-  user_setup_completed: boolean | null;
+type CharacterRelation =
+  | {
+      id: string;
+      temporary_name: string | null;
+      final_name: string | null;
+      role_name: string | null;
+      default_expression: string | null;
+      icon_image_url: string | null;
+    }
+  | {
+      id: string;
+      temporary_name: string | null;
+      final_name: string | null;
+      role_name: string | null;
+      default_expression: string | null;
+      icon_image_url: string | null;
+    }[]
+  | null;
+
+type ThreadRow = {
+  id: string;
+  title: string | null;
+  chat_type: string;
+  character_id: string | null;
+  group_icon_color: string | null;
+  created_at: string;
+  updated_at: string;
+  characters: CharacterRelation;
+};
+
+type MessageRow = {
+  id: string;
+  thread_id: string;
+  sender_type: string;
+  content: string;
+  created_at: string;
+};
+
+type AutonomousChatNotificationRow = {
+  id: string;
+  related_thread_id: string | null;
+};
+
+type ProfileForCharacterAccess = {
   plan: string | null;
   active_character_id: string | null;
   character_limit_choice_locked: boolean | null;
 };
 
-type CharacterRow = {
-  id: string;
-  temporary_name: string | null;
-  final_name: string | null;
-  role_name: string | null;
-  status: string | null;
-  icon_image_url: string | null;
-  image_url: string | null;
-  background_image_id: string | null;
-  icon_image_id: string | null;
-  created_at: string;
-};
-
-type ChatThreadRow = {
-  id: string;
-  character_id: string | null;
-  updated_at: string;
-};
-
-type AutonomousChatNotificationRow = {
-  id: string;
-  title: string;
-  body: string;
-  link_path: string | null;
-  related_thread_id: string | null;
-  created_at: string;
-};
-
-type NotificationThreadRow = {
-  id: string;
-  title: string | null;
-  chat_type: string | null;
-};
-
-type PlanTier = "free" | "premium_lite" | "premium";
-
-type CharacterLimitConfig = {
-  planTier: PlanTier;
-  limit: number;
-  label: string;
-  isTrialBoostActive: boolean;
-};
-
-const FREE_TRIAL_BOOST_DURATION_HOURS = 72;
-const FREE_TRIAL_BOOST_CHARACTER_LIMIT = 3;
-const FREE_NORMAL_CHARACTER_LIMIT = 1;
-
-function getTrialBoostEndsAt(userCreatedAt: string | null | undefined) {
-  if (!userCreatedAt) {
-    return null;
-  }
-
-  const createdAt = new Date(userCreatedAt);
-
-  if (Number.isNaN(createdAt.getTime())) {
-    return null;
-  }
-
-  return new Date(
-    createdAt.getTime() + FREE_TRIAL_BOOST_DURATION_HOURS * 60 * 60 * 1000,
-  );
-}
-
-function getTrialBoostStatus({
-  plan,
-  userCreatedAt,
-  now,
-}: {
+type ProfileQueryRow = {
   plan: string | null;
-  userCreatedAt: string | null | undefined;
-  now: Date;
-}) {
-  const planTier = getPlanTier(plan);
-  const endsAt = getTrialBoostEndsAt(userCreatedAt);
-  const isActive = planTier === "free" && Boolean(endsAt) && now < endsAt!;
-
-  return {
-    endsAt,
-    isActive,
-    hasEnded: planTier === "free" && Boolean(endsAt) && now >= endsAt!,
-  };
-}
-
-function formatTrialBoostRemaining(endsAt: Date | null, now: Date) {
-  if (!endsAt) {
-    return "";
-  }
-
-  const remainingMs = endsAt.getTime() - now.getTime();
-
-  if (remainingMs <= 0) {
-    return "終了しました";
-  }
-
-  const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-
-  if (remainingHours >= 48) {
-    return `残り約${Math.ceil(remainingHours / 24)}日`;
-  }
-
-  return `残り約${remainingHours}時間`;
-}
+  active_character_id?: string | null;
+  character_limit_choice_locked?: boolean | null;
+};
 
 function normalizePlan(plan: string | null) {
   return (plan || "free").trim().toLowerCase().replace(/\s+/g, "_");
 }
 
-function getPlanTier(plan: string | null): PlanTier {
+function isPaidPlan(plan: string | null) {
   const normalizedPlan = normalizePlan(plan);
 
-  if (normalizedPlan.includes("lite")) {
-    return "premium_lite";
-  }
-
-  if (
+  return (
     normalizedPlan.includes("premium") ||
+    normalizedPlan.includes("lite") ||
     normalizedPlan.includes("pro") ||
     normalizedPlan.includes("paid")
-  ) {
-    return "premium";
-  }
-
-  return "free";
+  );
 }
 
-function getCharacterLimitConfig({
-  plan,
-  isTrialBoostActive,
-}: {
-  plan: string | null;
-  isTrialBoostActive: boolean;
-}): CharacterLimitConfig {
-  const planTier = getPlanTier(plan);
-
-  if (planTier === "premium") {
-    return {
-      planTier,
-      limit: 10,
-      label: "Premium",
-      isTrialBoostActive: false,
-    };
-  }
-
-  if (planTier === "premium_lite") {
-    return {
-      planTier,
-      limit: 3,
-      label: "Lite",
-      isTrialBoostActive: false,
-    };
-  }
-
-  return {
-    planTier,
-    limit: isTrialBoostActive
-      ? FREE_TRIAL_BOOST_CHARACTER_LIMIT
-      : FREE_NORMAL_CHARACTER_LIMIT,
-    label: isTrialBoostActive ? "Free Trial" : "Free",
-    isTrialBoostActive,
-  };
+function isFreePlan(plan: string | null) {
+  return !isPaidPlan(plan);
 }
 
-function getCharacterName(character: CharacterRow | null) {
+function getCharacterFromRelation(characterRelation: CharacterRelation) {
+  if (Array.isArray(characterRelation)) {
+    return characterRelation[0] ?? null;
+  }
+
+  return characterRelation;
+}
+
+function getCharacterName(
+  character: ReturnType<typeof getCharacterFromRelation>,
+) {
   if (!character) {
     return "キャラクター";
   }
@@ -206,145 +123,29 @@ function formatDateTime(value: string) {
   });
 }
 
-function CharacterAvatar({
-  name,
-  imageUrl,
-  sizeClass,
-  roundedClass,
-  textClass,
-}: {
-  name: string;
-  imageUrl: string | null;
-  sizeClass: string;
-  roundedClass: string;
-  textClass: string;
-}) {
-  const baseClass = [
-    "relative shrink-0 overflow-hidden border border-[#BEF264]/25 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.06] to-[#7DD3FC]/20 shadow-lg shadow-[#7DD3FC]/10",
-    sizeClass,
-    roundedClass,
-    textClass,
-  ].join(" ");
-
-  if (imageUrl) {
-    return (
-      <div className={baseClass}>
-        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-      </div>
-    );
+function getMessagePreview(
+  message: MessageRow | undefined,
+  characterName: string,
+) {
+  if (!message) {
+    return "まだ会話はありません。最初のひと言を送ってみましょう。";
   }
 
-  return (
-    <div
-      className={[
-        baseClass,
-        "flex items-center justify-center font-black text-[#F4F1EA]",
-      ].join(" ")}
-    >
-      {getAvatarText(name)}
-    </div>
-  );
+  const senderName = message.sender_type === "user" ? "あなた" : characterName;
+  const content = message.content.replace(/\s+/g, " ").trim();
+
+  if (!content) {
+    return `${senderName}：メッセージ`;
+  }
+
+  if (content.length > 70) {
+    return `${senderName}：${content.slice(0, 70)}…`;
+  }
+
+  return `${senderName}：${content}`;
 }
 
-function getPrimaryAction({
-  character,
-  thread,
-  needsActiveCharacterSelection,
-}: {
-  character: CharacterRow | null;
-  thread: ChatThreadRow | null;
-  needsActiveCharacterSelection: boolean;
-}) {
-  if (needsActiveCharacterSelection) {
-    return {
-      href: "/app/characters/select-active",
-      label: "使うキャラを選ぶ",
-      subLabel: "Freeで話す1人を決める",
-    };
-  }
-
-  if (!character) {
-    return {
-      href: "/app/characters/new",
-      label: "最初のキャラクターを作る",
-      subLabel: "出会いを始める",
-    };
-  }
-
-  if (character.status === "active") {
-    return {
-      href: thread ? `/app/chat/${thread.id}` : `/app/characters/${character.id}`,
-      label: "話しかける",
-      subLabel: "チャットへ戻る",
-    };
-  }
-
-  if (character.background_image_id && character.icon_image_id) {
-    return {
-      href: `/app/characters/${character.id}/encounter`,
-      label: "キャラクターに会いに行く",
-      subLabel: "出会いイベントへ",
-    };
-  }
-
-  return {
-    href: `/app/characters/${character.id}/visual`,
-    label: "姿を決める",
-    subLabel: "ビジュアル設定へ",
-  };
-}
-
-function getHomeReasonText({
-  character,
-  thread,
-  isFreePlan,
-  isTrialBoostActive,
-  needsActiveCharacterSelection,
-  activeCharacterCount,
-}: {
-  character: CharacterRow | null;
-  thread: ChatThreadRow | null;
-  isFreePlan: boolean;
-  isTrialBoostActive: boolean;
-  needsActiveCharacterSelection: boolean;
-  activeCharacterCount: number;
-}) {
-  if (needsActiveCharacterSelection) {
-    return "Freeプランでは、まず話せるキャラクターを1人選ぶ必要があります。選んだ子がホームに表示されます。";
-  }
-
-  if (!character) {
-    return "まだキャラクターはいません。最初のひとりを作って、出会いを始めましょう。";
-  }
-
-  if (character.status !== "active") {
-    return "この子はまだ出会いの途中です。姿を決めて、名前を与えて、最初の会話へ進みましょう。";
-  }
-
-  if (isTrialBoostActive && activeCharacterCount >= 2) {
-    return "初回72時間トライアル中です。今だけ複数キャラとグループチャットを体験できます。今日はキャラクター同士の関係も楽しんでみましょう。";
-  }
-
-  if (isTrialBoostActive) {
-    return "初回72時間トライアル中です。今だけキャラクター3人まで作成できます。まずはこの子との会話を始めましょう。";
-  }
-
-  if (isFreePlan) {
-    return "Freeプランで今話せるキャラクターです。今日もこの子があなたを待っています。";
-  }
-
-  if (!thread) {
-    return "まだ会話がないキャラクターです。最初のひと言を送って、この子との時間を始めましょう。";
-  }
-
-  if (activeCharacterCount >= 2) {
-    return "最近あまり話していないキャラクターを優先して表示しています。今日はこの子に会いに行きませんか。";
-  }
-
-  return "この子は、あなたが戻ってくるのを待っています。前の会話の続きから、また話し始めましょう。";
-}
-
-export default async function AppHomePage() {
+export default async function ChatsPage() {
   const supabase = await createClient();
 
   const {
@@ -355,497 +156,194 @@ export default async function AppHomePage() {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select(
-      "user_setup_completed, plan, active_character_id, character_limit_choice_locked",
-    )
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const profile = (profileData ?? {
-    user_setup_completed: false,
+  let profileForCharacterAccess: ProfileForCharacterAccess = {
     plan: "free",
     active_character_id: null,
     character_limit_choice_locked: false,
-  }) as ProfileRow;
+  };
 
-  const now = new Date();
-  const trialBoostStatus = getTrialBoostStatus({
-    plan: profile.plan,
-    userCreatedAt: user.created_at,
-    now,
-  });
-  const trialBoostRemainingText = formatTrialBoostRemaining(
-    trialBoostStatus.endsAt,
-    now,
-  );
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("plan, active_character_id, character_limit_choice_locked")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  let trialBoostMessageRemaining: number | null = null;
-  let trialBoostMessageLimit = 300;
-  let monthlyMessageRemaining: number | null = null;
+  if (profileData) {
+    const profile = profileData as ProfileQueryRow;
 
-  if (trialBoostStatus.isActive) {
-    try {
-      const messageUsageStatus = await getMessageUsageStatus({
-        supabase,
-        userId: user.id,
-        profile: {
-          id: user.id,
-          plan: profile.plan,
-          created_at: user.created_at ?? null,
-        },
-      });
-
-      trialBoostMessageRemaining = messageUsageStatus.trialBoost.remaining;
-      trialBoostMessageLimit = messageUsageStatus.trialBoost.limit || 300;
-      monthlyMessageRemaining = messageUsageStatus.monthlyRemaining;
-    } catch (error) {
-      console.error("Home message usage status error:", error);
-    }
+    profileForCharacterAccess = {
+      plan: profile.plan ?? "free",
+      active_character_id: profile.active_character_id ?? null,
+      character_limit_choice_locked:
+        profile.character_limit_choice_locked ?? false,
+    };
   }
 
-  const trialBoostMessageText =
-    trialBoostMessageRemaining === null
-      ? `最大${trialBoostMessageLimit}回`
-      : `あと${trialBoostMessageRemaining}回`;
-
-  const monthlyMessageText =
-    monthlyMessageRemaining === null ? "月250回" : `今月あと${monthlyMessageRemaining}回`;
-
-  const limitConfig = getCharacterLimitConfig({
-    plan: profile.plan,
-    isTrialBoostActive: trialBoostStatus.isActive,
-  });
-  const isCurrentFreePlan = limitConfig.planTier === "free";
-  const isFreeSingleCharacterMode =
-    isCurrentFreePlan && !trialBoostStatus.isActive;
-  const isUserSetupCompleted = Boolean(profile.user_setup_completed);
-
-  const { data: charactersData } = await supabase
+  const { count: characterCount } = await supabase
     .from("characters")
-    .select(
-      `
-      id,
-      temporary_name,
-      final_name,
-      role_name,
-      status,
-      icon_image_url,
-      image_url,
-      background_image_id,
-      icon_image_id,
-      created_at
-    `,
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
 
-  const characters = (charactersData ?? []) as CharacterRow[];
-  const characterCount = characters.length;
+  const totalCharacters = characterCount ?? 0;
+  const isCurrentFreePlan = isFreePlan(profileForCharacterAccess.plan);
+
+  const needsActiveCharacterSelection =
+    isCurrentFreePlan &&
+    totalCharacters > 1 &&
+    !profileForCharacterAccess.character_limit_choice_locked;
+
+  const isFreeCharacterLocked =
+    isCurrentFreePlan &&
+    Boolean(profileForCharacterAccess.character_limit_choice_locked) &&
+    Boolean(profileForCharacterAccess.active_character_id);
 
   const { data: threadsData } = await supabase
     .from("chat_threads")
-    .select("id, character_id, updated_at")
+    .select(
+      `
+      id,
+      title,
+      chat_type,
+      character_id,
+      group_icon_color,
+      created_at,
+      updated_at,
+      characters (
+        id,
+        temporary_name,
+        final_name,
+        role_name,
+        default_expression,
+        icon_image_url
+      )
+    `,
+    )
     .eq("user_id", user.id)
-    .eq("chat_type", "single")
     .order("updated_at", { ascending: false });
 
-  const threads = (threadsData ?? []) as ChatThreadRow[];
+  const threads = (threadsData ?? []) as ThreadRow[];
+  const threadIds = threads.map((thread) => thread.id);
 
-  const latestThreadByCharacterId = new Map<string, ChatThreadRow>();
+  let latestMessages: MessageRow[] = [];
 
-  threads.forEach((thread) => {
-    if (!thread.character_id) {
-      return;
-    }
-
-    if (!latestThreadByCharacterId.has(thread.character_id)) {
-      latestThreadByCharacterId.set(thread.character_id, thread);
-    }
-  });
-
-  const activeCharacters = characters.filter(
-    (character) => character.status === "active",
-  );
-
-  const activeCharacter = profile.active_character_id
-    ? characters.find((character) => character.id === profile.active_character_id) ??
-      null
-    : null;
-
-  const paidRecommendedActiveCharacter =
-    activeCharacters
-      .slice()
-      .sort((a, b) => {
-        const aThread = latestThreadByCharacterId.get(a.id) ?? null;
-        const bThread = latestThreadByCharacterId.get(b.id) ?? null;
-
-        if (!aThread && bThread) {
-          return -1;
-        }
-
-        if (aThread && !bThread) {
-          return 1;
-        }
-
-        if (!aThread && !bThread) {
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-        }
-
-        const aUpdatedTime = aThread
-          ? new Date(aThread.updated_at).getTime()
-          : Number.POSITIVE_INFINITY;
-
-        const bUpdatedTime = bThread
-          ? new Date(bThread.updated_at).getTime()
-          : Number.POSITIVE_INFINITY;
-
-        return aUpdatedTime - bUpdatedTime;
-      })[0] ?? null;
-
-  const newestDraftOrAnyCharacter = characters[0] ?? null;
-
-  const primaryCharacter = isFreeSingleCharacterMode
-    ? activeCharacter ?? activeCharacters[0] ?? newestDraftOrAnyCharacter
-    : paidRecommendedActiveCharacter ?? newestDraftOrAnyCharacter;
-
-  const primaryThread = primaryCharacter
-    ? latestThreadByCharacterId.get(primaryCharacter.id) ?? null
-    : null;
-
-  const primaryCharacterName = getCharacterName(primaryCharacter);
-
-  const isOverFreeLimit =
-    isFreeSingleCharacterMode && characterCount > limitConfig.limit;
-
-  const needsActiveCharacterSelection =
-    isOverFreeLimit && !profile.character_limit_choice_locked;
-
-  const isCreateLimitReached = characterCount >= limitConfig.limit;
-
-  const primaryAction = getPrimaryAction({
-    character: primaryCharacter,
-    thread: primaryThread,
-    needsActiveCharacterSelection,
-  });
-
-  const homeReasonText = getHomeReasonText({
-    character: primaryCharacter,
-    thread: primaryThread,
-    isFreePlan: isCurrentFreePlan,
-    isTrialBoostActive: trialBoostStatus.isActive,
-    needsActiveCharacterSelection,
-    activeCharacterCount: activeCharacters.length,
-  });
-
-  const activeSelectionTitle = trialBoostStatus.hasEnded
-    ? "初回トライアルは終了しました"
-    : "Freeで使うキャラクターを選んでください";
-
-  const activeSelectionBody = trialBoostStatus.hasEnded
-    ? `Freeプランでは話せるキャラクターは1人です。作成したキャラクターは削除されません。現在${characterCount}人いるので、今話す1人を選んでください。`
-    : `現在キャラクターが${characterCount}人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。`;
-
-    const { data: autonomousNotificationData } = await supabase
-    .from("notifications")
-    .select("id, title, body, link_path, related_thread_id, created_at")
-    .eq("user_id", user.id)
-    .eq("type", "autonomous_chat")
-    .is("read_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const autonomousNotification =
-    (autonomousNotificationData ?? null) as AutonomousChatNotificationRow | null;
-
-  let autonomousNotificationThread: NotificationThreadRow | null = null;
-
-  if (autonomousNotification?.related_thread_id) {
-    const { data: notificationThreadData } = await supabase
-      .from("chat_threads")
-      .select("id, title, chat_type")
-      .eq("id", autonomousNotification.related_thread_id)
+  if (threadIds.length > 0) {
+    const { data: messagesData } = await supabase
+      .from("chat_messages")
+      .select("id, thread_id, sender_type, content, created_at")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .in("thread_id", threadIds)
+      .order("created_at", { ascending: false });
 
-    autonomousNotificationThread =
-      (notificationThreadData ?? null) as NotificationThreadRow | null;
+    latestMessages = (messagesData ?? []) as MessageRow[];
   }
 
-  const shouldShowAutonomousChatCard =
-    Boolean(autonomousNotification) &&
-    autonomousNotificationThread?.chat_type === "group";
+  const latestMessageMap = new Map<string, MessageRow>();
 
-  const autonomousGroupName =
-    autonomousNotificationThread?.title || "グループチャット";
+  latestMessages.forEach((message) => {
+    if (!latestMessageMap.has(message.thread_id)) {
+      latestMessageMap.set(message.thread_id, message);
+    }
+  });
 
-  const autonomousChatHref =
-    autonomousNotification?.link_path ||
-    (autonomousNotification?.related_thread_id
-      ? `/app/chat/${autonomousNotification.related_thread_id}`
-      : "/app/chats");
+    let unreadAutonomousNotifications: AutonomousChatNotificationRow[] = [];
+
+  if (threadIds.length > 0) {
+    const { data: notificationsData } = await supabase
+      .from("notifications")
+      .select("id, related_thread_id")
+      .eq("user_id", user.id)
+      .eq("type", "autonomous_chat")
+      .is("read_at", null)
+      .in("related_thread_id", threadIds);
+
+    unreadAutonomousNotifications =
+      (notificationsData ?? []) as AutonomousChatNotificationRow[];
+  }
+
+  const unreadAutonomousThreadIds = new Set(
+    unreadAutonomousNotifications
+      .map((notification) => notification.related_thread_id)
+      .filter((threadId): threadId is string => Boolean(threadId)),
+  );
+
+  const hasWaitingChats = threads.some(
+    (thread) =>
+      isFreeCharacterLocked &&
+      thread.chat_type === "single" &&
+      Boolean(thread.character_id) &&
+      thread.character_id !== profileForCharacterAccess.active_character_id,
+  );
+
+  const hasSelectionRequiredChats = threads.some(
+    (thread) =>
+      needsActiveCharacterSelection &&
+      thread.chat_type === "single" &&
+      Boolean(thread.character_id),
+  );
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.22),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_54%,#F1F5F9_100%)] px-5 pb-28 pt-8 text-[#1E293B]">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.22),transparent_34%),linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_54%,#F1F5F9_100%)] px-4 pb-28 pt-6 text-[#1E293B] sm:px-5">
       <section className="mx-auto w-full max-w-md">
-        <header className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-[0.24em] text-[#FACC15]">
-              FevCara
-            </p>
-            <h1 className="mt-2 text-3xl font-black">おかえりなさい</h1>
-            <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-              あなたが生み出したキャラクターに、今日も会いに行きましょう。
-            </p>
+        <header className="rounded-[2rem] border border-white/10 bg-[#111827]/85 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/app"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-[#A7B0C0] transition hover:border-[#7DD3FC]/40 hover:text-[#F4F1EA]"
+            >
+              ← ホーム
+            </Link>
 
-            {user.email ? (
-              <p className="mt-3 truncate rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-[#A7B0C0]">
-                ログイン中：{user.email}
-              </p>
-            ) : null}
+            <Link
+              href="/app/characters"
+              className="rounded-full border border-[#BEF264]/20 bg-[#BEF264]/10 px-3 py-2 text-xs font-black text-[#D9F99D] transition hover:bg-[#BEF264]/15"
+            >
+              キャラ一覧
+            </Link>
           </div>
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#BEF264]/30 bg-[#BEF264]/10 text-lg">
-            ✦
+          <p className="mt-6 text-[11px] font-black tracking-[0.24em] text-[#FACC15]">
+            CHATS
+          </p>
+
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black">チャット</h1>
+              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
+                最近話したキャラクターから順に表示します。
+              </p>
+            </div>
+
+            <div className="shrink-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center">
+              <p className="text-xl font-black text-[#F4F1EA]">
+                {threads.length}
+              </p>
+              <p className="text-[10px] font-semibold text-[#A7B0C0]">
+                chats
+              </p>
+            </div>
           </div>
         </header>
 
-        {!isUserSetupCompleted ? (
-          <div className="mt-8 rounded-[2rem] border border-[#FACC15]/45 bg-[#FEF9C3]/80 p-5 shadow-2xl shadow-black/30">
-            <p className="text-sm font-black tracking-[0.16em] text-[#FDE68A]">
-              FIRST SETUP
-            </p>
-            <h2 className="mt-3 text-2xl font-black leading-tight">
-              まずはあなたのことを
-              <br />
-              教えてください
-            </h2>
-
-            <p className="mt-4 text-sm leading-7 text-[#F4F1EA]">
-              キャラクターたちが、あなたに自然に話しかけられるようにするための設定です。
-              本名でなくても大丈夫です。
-            </p>
-
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
-              <p className="text-xs font-bold leading-6 text-[#D8DEE9]">
-                ここで設定する名前は、FevCara内で表示するユーザー名です。
-                キャラクターに呼ばれたい名前は、キャラクターごとの設定や出会いイベントで決められます。
-              </p>
-            </div>
-
-            <Link
-              href="/app/settings#user-profile"
-              className="mt-5 block rounded-2xl bg-gradient-to-r from-[#FACC15] to-[#BEF264] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#FACC15]/20 transition hover:scale-[1.01] hover:opacity-95"
-            >
-              ユーザー設定をする
-            </Link>
-          </div>
-        ) : null}
-
-        {trialBoostStatus.isActive ? (
-          <div className="mt-5 rounded-[2rem] border border-[#BEF264]/45 bg-[#F7FEE7]/85 p-5 shadow-xl shadow-[#BEF264]/5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-black tracking-[0.16em] text-[#D9F99D]">
-                  TRIAL BOOST
-                </p>
-                <h2 className="mt-2 text-xl font-black leading-tight">
-                  初回72時間トライアル中
-                </h2>
-              </div>
-
-              <span className="shrink-0 rounded-full border border-[#FACC15]/45 bg-[#FEF9C3]/80 px-3 py-1 text-xs font-black text-[#FDE68A]">
-                {trialBoostRemainingText}
-              </span>
-            </div>
-
-            <p className="mt-3 text-sm leading-7 text-[#E2E8F0]">
-              今だけキャラクター3人とグループチャットを体験できます。
-              通常Freeの月250メッセージ送信とは別に、72時間限定ボーナスも使えます。
-              トライアル終了後、Freeプランで話せるキャラクターは1人になります。
-              作成したキャラクターは削除されません。
-            </p>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 text-xs font-bold">
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#D9F99D]">
-                キャラ上限 3人
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#BAE6FD]">
-                グループチャット体験
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#FDE68A]">
-                ボーナス送信 {trialBoostMessageText}
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-[#F4F1EA]">
-                画像ボーナス +6クレジット
-              </div>
-            </div>
-
-            <p className="mt-3 text-xs leading-6 text-[#CBD5E1]">
-              Free通常枠：{monthlyMessageText}。AI返信は消費に含まれません。
-            </p>
-          </div>
-        ) : null}
-
-                {shouldShowAutonomousChatCard && autonomousNotification ? (
-          <section className="mt-5 overflow-hidden rounded-[2rem] border border-[#7DD3FC]/25 bg-[#0F172A]/80 p-5 shadow-2xl shadow-[#7DD3FC]/10">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-black tracking-[0.16em] text-[#7DD3FC]">
-                  NEW CHAT
-                </p>
-                <h2 className="mt-2 text-xl font-black leading-tight text-white">
-                  キャラクターたちが
-                  <br />
-                  おしゃべりをしています
-                </h2>
-              </div>
-
-              <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#7DD3FC]/25 bg-[#7DD3FC]/10 text-xl shadow-lg shadow-[#7DD3FC]/10">
-                💬
-                <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border border-[#0F172A] bg-[#BEF264]" />
-              </span>
-            </div>
-
-            <p className="mt-4 text-sm leading-7 text-[#E2E8F0]">
-              「{autonomousGroupName}」で新しい会話がありました。
-            </p>
-
-            {autonomousNotification.body ? (
-              <div className="mt-4 rounded-3xl border border-white/10 bg-black/20 p-4">
-                <p className="line-clamp-3 text-xs leading-6 text-[#CBD5E1]">
-                  {autonomousNotification.body}
-                </p>
-              </div>
-            ) : null}
-
-            <Link
-              href={autonomousChatHref}
-              className="mt-5 block rounded-2xl bg-gradient-to-r from-[#7DD3FC] to-[#BEF264] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
-            >
-              会話をのぞく
-            </Link>
-          </section>
-        ) : null}
-
-        <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-[#111827]/80 shadow-2xl shadow-black/30">
-          {primaryCharacter ? (
-            <div className="relative aspect-square w-full bg-[#EEF1F4]">
-              {primaryCharacter.image_url ? (
-                <img
-                  src={primaryCharacter.image_url}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-contain object-center"
-                />
-              ) : (
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(190,242,100,0.22),transparent_32%),radial-gradient(circle_at_50%_60%,rgba(125,211,252,0.18),transparent_38%),#111827]" />
-              )}
-
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.10)_28%,rgba(15,23,42,0.58)_64%,rgba(15,23,42,0.92))]" />
-
-              <div className="relative z-10 flex h-full flex-col justify-end p-5">
-                <div className="mb-4 flex items-center gap-3">
-                  <CharacterAvatar
-                    name={primaryCharacterName}
-                    imageUrl={primaryCharacter.icon_image_url}
-                    sizeClass="h-16 w-16"
-                    roundedClass="rounded-3xl"
-                    textClass="text-2xl"
-                  />
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black tracking-[0.2em] text-[#BEF264]">
-                      TODAY&apos;S CHARACTER
-                    </p>
-                    <h2 className="mt-1 break-words text-3xl font-black text-white">
-                      {primaryCharacterName}
-                    </h2>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {primaryCharacter.role_name ? (
-                        <span className="rounded-full border border-[#7DD3FC]/25 bg-[#7DD3FC]/15 px-3 py-1 text-xs font-bold text-[#BAE6FD] backdrop-blur">
-                          {primaryCharacter.role_name}
-                        </span>
-                      ) : null}
-
-                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-bold text-[#F4F1EA] backdrop-blur">
-                        {primaryCharacter.status || "draft"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <p className="rounded-3xl border border-white/10 bg-[#0F172A]/52 p-4 text-sm leading-7 text-[#E2E8F0] shadow-xl shadow-black/20 backdrop-blur-md">
-                  {homeReasonText}
-                </p>
-
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <Link
-                    href={primaryAction.href}
-                    className="block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-4 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
-                  >
-                    {primaryAction.label}
-                    <span className="mt-1 block text-xs font-bold text-[#17212F]/75">
-                      {primaryAction.subLabel}
-                    </span>
-                  </Link>
-
-                  <Link
-                    href={`/app/characters/${primaryCharacter.id}`}
-                    className="block rounded-2xl border border-white/12 bg-white/[0.10] px-4 py-4 text-center text-sm font-black text-[#F8FAFC] shadow-lg shadow-black/10 backdrop-blur transition hover:bg-white/[0.16]"
-                  >
-                    詳細を見る
-                    <span className="mt-1 block text-xs font-medium text-[#D8DEE9]">
-                      設定・画像
-                    </span>
-                  </Link>
-                </div>
-
-                {primaryThread ? (
-                  <p className="mt-3 text-center text-[11px] font-medium text-[#CBD5E1]">
-                    最終更新：{formatDateTime(primaryThread.updated_at)}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="p-5">
-              <p className="text-sm font-semibold text-[#7DD3FC]">
-                最初のキャラクターを作成
-              </p>
-
-              <h2 className="mt-3 text-2xl font-black leading-tight">
-                名前のない存在に、
-                <br />
-                姿と言葉を。
-              </h2>
-
-              <p className="mt-4 text-sm leading-7 text-[#B8C2D6]">
-                性格、話し方、目の色、服装、祝ってほしい日。
-                あなたの“好き”から、あなただけのAIキャラクターを生み出します。
-              </p>
-
-              <Link
-                href="/app/characters/new"
-                className="mt-6 block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20 transition hover:scale-[1.01] hover:opacity-95"
-              >
-                キャラクターを作成する
-              </Link>
-            </div>
-          )}
-        </section>
+        <Link
+          href="/app/chats/group/new"
+          className="mt-5 block rounded-[1.75rem] border border-[#7DD3FC]/45 bg-[#E0F2FE]/80 px-5 py-4 text-center shadow-xl shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
+        >
+          <span className="block text-sm font-black text-[#0284C7]">
+            グループチャットを作る
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-[#64748B]">
+            Lite / Premium / 初回72時間トライアル中に利用できます
+          </span>
+        </Link>
 
         {needsActiveCharacterSelection ? (
-          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/45 bg-[#FEF9C3]/80 p-5 shadow-xl shadow-[#FACC15]/5">
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
             <p className="text-sm font-black text-[#FDE68A]">
-              {activeSelectionTitle}
+              Freeで使うキャラクターを選んでください
             </p>
             <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
-              {activeSelectionBody}
+              現在キャラクターが{totalCharacters}
+              人います。Freeプランでは、先にチャットできるキャラクターを1人だけ選ぶ必要があります。
             </p>
 
             <Link
@@ -857,105 +355,251 @@ export default async function AppHomePage() {
           </div>
         ) : null}
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
-         <div className="rounded-3xl border border-[#D9F99D] bg-[#F7FEE7] p-4">
-            <p className="text-2xl font-black text-[#0F172A]">
-              {characterCount}
-              <span className="text-sm text-[#64748B]">
-                {" "}
-                / {limitConfig.limit}
-              </span>
+        {!needsActiveCharacterSelection && hasWaitingChats ? (
+          <div className="mt-5 rounded-[2rem] border border-[#FACC15]/25 bg-[#FACC15]/10 p-5 shadow-xl shadow-[#FACC15]/5">
+            <p className="text-sm font-black text-[#FDE68A]">
+              待機中のチャットがあります
             </p>
-            <p className="mt-1 text-xs font-bold text-[#65A30D]">
-              キャラクター
+            <p className="mt-2 text-xs leading-6 text-[#D8DEE9]">
+              Freeプランでは、選択した1人のキャラクターだけとチャットできます。
+              待機中のキャラクターは履歴の確認のみできます。
             </p>
           </div>
+        ) : null}
 
-          <div className="rounded-3xl border border-[#BAE6FD] bg-[#E0F2FE] p-4">
-            <p className="text-2xl font-black text-[#0F172A]">
-              {threads.length}
+        {hasSelectionRequiredChats ? (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs leading-6 text-[#A7B0C0]">
+              下のチャット履歴は残っていますが、送信するには先に使うキャラクターを選択してください。
             </p>
-            <p className="mt-1 text-xs font-bold text-[#0284C7]">チャット</p>
           </div>
-        </div>
+        ) : null}
 
-        <div className="mt-5 grid gap-3">
-          <Link
-            href="/app/chats"
-            className="flex items-center justify-between rounded-3xl border border-[#7DD3FC]/45 bg-[#E0F2FE]/80 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#7DD3FC]/18"
-          >
-            <div className="flex items-center gap-4">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7DD3FC]/18 text-xl">
-                💬
-              </span>
-              <span className="text-base font-black text-[#0369A1]">
-                チャット一覧
-              </span>
+        {threads.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-white/15 bg-white/[0.04] p-6 text-center shadow-xl shadow-black/20">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#BEF264]/20 bg-[#BEF264]/10 text-2xl font-black text-[#D9F99D]">
+              ◇
             </div>
-            <span className="text-xl font-black text-[#7DD3FC]">→</span>
-          </Link>
 
-          <Link
-            href="/app/characters"
-            className="flex items-center justify-between rounded-3xl border border-[#BEF264]/25 bg-[#BEF264]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#BEF264]/18"
-          >
-            <div className="flex items-center gap-4">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#BEF264]/18 text-xl">
-                ☻
-              </span>
-              <span className="text-base font-black text-[#65A30D]">
-                キャラクター一覧
-              </span>
+            <h2 className="mt-5 text-xl font-black">
+              まだチャットはありません
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-[#A7B0C0]">
+              キャラクター詳細ページから「話しかける」を押すと、
+              ここに会話が表示されます。
+            </p>
+
+            <div className="mt-6 grid gap-3">
+              <Link
+                href="/app/characters"
+                className="block rounded-2xl bg-gradient-to-r from-[#BEF264] to-[#7DD3FC] px-5 py-4 text-center text-sm font-black text-[#07111F] shadow-lg shadow-[#7DD3FC]/20"
+              >
+                キャラクター一覧へ
+              </Link>
+
+              <Link
+                href="/app/characters/new"
+                className="block rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-sm font-bold text-[#F4F1EA] transition hover:border-[#BEF264]/30"
+              >
+                新しいキャラクターを作る
+              </Link>
             </div>
-            <span className="text-xl font-black text-[#BEF264]">→</span>
-          </Link>
+          </div>
+        ) : (
+          <div className="mt-6 space-y-3">
+            {threads.map((thread) => {
+              const character = getCharacterFromRelation(thread.characters);
+              const characterName = getCharacterName(character);
+              const latestMessage = latestMessageMap.get(thread.id);
+              const isGroupChat = thread.chat_type === "group";
+              const hasUnreadAutonomousChat =
+                isGroupChat && unreadAutonomousThreadIds.has(thread.id);
+              const threadDisplayName = isGroupChat
+                ? thread.title || "グループチャット"
+                : characterName;
+              const characterIconUrl =
+                !isGroupChat && character?.icon_image_url
+                  ? character.icon_image_url
+                  : null;
+              const groupInitial = getGroupInitial(threadDisplayName);
+              const groupIconClasses = getGroupIconClasses(
+                thread.group_icon_color,
+              );
 
-          {!isCreateLimitReached ? (
+              const isWaitingThreadCharacter =
+                isFreeCharacterLocked &&
+                thread.chat_type === "single" &&
+                Boolean(thread.character_id) &&
+                thread.character_id !==
+                  profileForCharacterAccess.active_character_id;
+
+              const isSelectionRequiredThread =
+                needsActiveCharacterSelection &&
+                thread.chat_type === "single" &&
+                Boolean(thread.character_id);
+
+              const isLimitedThread =
+                isWaitingThreadCharacter || isSelectionRequiredThread;
+
+              const threadHref = isSelectionRequiredThread
+                ? "/app/characters/select-active"
+                : `/app/chat/${thread.id}`;
+
+              return (
+                <Link
+                  key={thread.id}
+                  href={threadHref}
+                  className={[
+                    "group block rounded-[1.75rem] border p-4 shadow-xl shadow-black/20 transition hover:scale-[1.01]",
+                       isLimitedThread
+                      ? "border-white/5 bg-[#111827]/45 opacity-75 hover:border-[#FACC15]/25 hover:bg-[#151B2A]"
+                      : hasUnreadAutonomousChat
+                        ? "border-[#BEF264]/35 bg-[#111827]/90 ring-1 ring-[#BEF264]/25 hover:border-[#BEF264]/55 hover:bg-[#172033]"
+                        : "border-white/10 bg-[#111827]/82 hover:border-[#7DD3FC]/35 hover:bg-[#172033]",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={[
+                        "relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.4rem] border text-xl font-black shadow-lg",
+                        isLimitedThread
+                          ? "border-white/10 bg-white/[0.04] text-[#7D8AA3] shadow-black/10"
+                          : isGroupChat
+                            ? groupIconClasses.icon
+                            : "border-[#BEF264]/20 bg-gradient-to-br from-[#BEF264]/20 via-white/[0.04] to-[#7DD3FC]/20 text-[#F4F1EA] shadow-[#7DD3FC]/10",
+                      ].join(" ")}
+                    >
+                      {characterIconUrl && !isGroupChat ? (
+                        <img
+                          src={characterIconUrl}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>{isGroupChat ? groupInitial : getAvatarText(characterName)}</span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p
+                              className={[
+                                "truncate text-lg font-black leading-tight",
+                                isLimitedThread
+                                  ? "text-[#C6CDD9]"
+                                  : "text-[#F4F1EA]",
+                              ].join(" ")}
+                            >
+                              {threadDisplayName}
+                            </p>
+
+                            {isGroupChat ? (
+                              <span className="shrink-0 rounded-full border border-[#7DD3FC]/20 bg-[#7DD3FC]/10 px-2 py-0.5 text-[10px] font-black text-[#BAE6FD]">
+                                GROUP
+                              </span>
+                            ) : null}
+
+                            {hasUnreadAutonomousChat ? (
+                              <span className="shrink-0 rounded-full border border-[#BEF264]/25 bg-[#BEF264]/10 px-2 py-0.5 text-[10px] font-black text-[#D9F99D]">
+                                おしゃべり中
+                              </span>
+                            ) : null}
+
+                            {isSelectionRequiredThread ? (
+                              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
+                                選択が必要
+                              </span>
+                            ) : null}
+
+                            {isWaitingThreadCharacter ? (
+                              <span className="shrink-0 rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-2 py-0.5 text-[10px] font-black text-[#FDE68A]">
+                                待機中
+                              </span>
+                            ) : null}
+                          </div>
+
+                            {isSelectionRequiredThread ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
+                              先に使うキャラを選んでください
+                            </p>
+                          ) : isWaitingThreadCharacter ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#FACC15]">
+                              履歴のみ表示できます
+                            </p>
+                          ) : hasUnreadAutonomousChat ? (
+                            <p className="mt-1 truncate text-xs font-black text-[#BEF264]">
+                              キャラたちが新しくおしゃべりしています
+                            </p>
+                          ) : isGroupChat ? (
+                            <p className="mt-1 text-xs font-semibold text-[#7DD3FC]">
+                              GROUP CHAT
+                            </p>
+                          ) : character?.role_name ? (
+                            <p className="mt-1 truncate text-xs font-semibold text-[#D9F99D]">
+                              {character.role_name}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-xs font-semibold text-[#7DD3FC]">
+                              SINGLE CHAT
+                            </p>
+                          )}
+                        </div>
+
+                        <p className="shrink-0 pt-0.5 text-[10px] text-[#7D8AA3]">
+                          {formatDateTime(thread.updated_at)}
+                        </p>
+                      </div>
+
+                      <p
+                        className={[
+                          "mt-3 line-clamp-2 text-sm leading-6",
+                          isLimitedThread
+                            ? "text-[#9AA4B7]"
+                            : "text-[#C9D2E3]",
+                        ].join(" ")}
+                      >
+                        {getMessagePreview(latestMessage, threadDisplayName)}
+                      </p>
+
+                      {isSelectionRequiredThread ? (
+                        <p className="mt-3 rounded-2xl border border-[#FACC15]/20 bg-[#FACC15]/10 px-3 py-2 text-xs font-bold text-[#FDE68A]">
+                          使うキャラを選ぶ
+                        </p>
+                      ) : null}
+
+                      {isWaitingThreadCharacter ? (
+                        <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-[#A7B0C0]">
+                          履歴を見る（待機中）
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div
+                      className={[
+                        "hidden shrink-0 transition group-hover:translate-x-0.5 sm:block",
+                        isLimitedThread
+                          ? "text-[#7D8AA3] group-hover:text-[#FDE68A]"
+                          : "text-[#7D8AA3] group-hover:text-[#BAE6FD]",
+                      ].join(" ")}
+                    >
+                      →
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+
             <Link
-              href="/app/characters/new"
-              className="flex items-center justify-between rounded-3xl border border-[#FACC15]/25 bg-[#FACC15]/12 px-5 py-5 shadow-lg shadow-black/10 transition hover:scale-[1.01] hover:bg-[#FACC15]/18"
+              href="/app/characters"
+              className="block rounded-[1.5rem] border border-dashed border-white/15 bg-white/[0.03] px-5 py-4 text-center text-sm font-bold text-[#A7B0C0] transition hover:border-[#BEF264]/30 hover:text-[#F4F1EA]"
             >
-              <div className="flex items-center gap-4">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FACC15]/18 text-xl">
-                  ✦
-                </span>
-                <span className="text-base font-black text-[#CA8A04]">
-                  新しいキャラクターを作る
-                </span>
-              </div>
-              <span className="text-xl font-black text-[#FACC15]">→</span>
+              別のキャラクターに話しかける
             </Link>
-          ) : (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm font-semibold text-[#F4F1EA]">
-                現在のプランでは作成上限に達しています
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#A7B0C0]">
-                {limitConfig.label}プランではキャラクターを
-                {limitConfig.limit}人まで利用できます。
-              </p>
-            </div>
-          )}
-
-          <div className="rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-            <p className="text-sm font-semibold text-[#0F172A]">
-              画像生成はオリジナルキャラ専用
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#64748B]">
-              実在人物・既存キャラクター・写真風の生成はできません。
-              FevCaraでは安全なイラスト絵柄プリセットを使います。
-            </p>
           </div>
-        </div>
-
-        <form action={logout} className="mt-6">
-          <button
-            type="submit"
-            className="w-full rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 text-center text-sm font-semibold text-[#334155] shadow-sm transition hover:bg-white"
-          >
-            ログアウト
-          </button>
-        </form>
+        )}
       </section>
 
       <AppBottomNav />
